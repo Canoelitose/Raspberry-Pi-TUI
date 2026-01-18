@@ -15,6 +15,11 @@ A beautiful, interactive Terminal User Interface (TUI) for monitoring and diagno
 
 ## Quick Start
 
+### Too Run on mine
+```bash
+./TUI/Raspberry-Pi-TUI/scripts/run.sh
+```
+
 ### Local Development
 ```bash
 python3 src/main.py
