@@ -1,0 +1,1 @@
+# Keine zusÃ¤tzlichen Pakete nÃ¶tig (curses ist auf Linux typischerweise enthalten)
