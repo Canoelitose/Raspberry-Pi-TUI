@@ -9,7 +9,8 @@ from netinfo import (
     get_interfaces, get_dns, get_default_route, ping, wifi_status, get_interface_stats,
     get_bluetooth_devices, get_bluetooth_status, get_bluetooth_powered,
     get_system_info, get_disk_usage, get_memory_info, check_open_ports,
-    scan_ports_with_nmap, scan_network_with_nmap, get_local_network, sniff_packets
+    scan_ports_with_nmap, scan_network_with_nmap, get_local_network, sniff_packets,
+    open_wireshark, check_wireshark_available
 )
 
 
@@ -1154,9 +1155,11 @@ class SnifferScreen(BaseScreen):
         self.lines: List[str] = []
         self.button_regions: List[ClickRegion] = []
         self.interface_buttons: List[ClickRegion] = []
+        self.action_buttons: List[ClickRegion] = []
         self.packet_count = 20
         self.selected_interface = None
         self.interfaces: List[str] = []
+        self.wireshark_available = check_wireshark_available()
         self._load_interfaces()
         self._load()
 
@@ -1239,6 +1242,51 @@ class SnifferScreen(BaseScreen):
             pass
         
         y_pos += 3
+        
+        # Draw action buttons (Tcpdump / Wireshark)
+        try:
+            stdscr.addstr(y_pos, 2, "┌─ CAPTURE MODE", curses.A_BOLD)
+            y_pos += 1
+        except curses.error:
+            pass
+        
+        self.action_buttons = []
+        action_x = 2
+        
+        # Tcpdump button
+        try:
+            stdscr.addstr(y_pos, action_x, " 📊 TcpDump ", curses.A_REVERSE)
+        except curses.error:
+            pass
+        self.action_buttons.append(ClickRegion(
+            y_start=y_pos,
+            y_end=y_pos,
+            x_start=action_x,
+            x_end=action_x + 12,
+            action_id=0
+        ))
+        
+        # Wireshark button (if available)
+        if self.wireshark_available:
+            action_x += 14
+            try:
+                stdscr.addstr(y_pos, action_x, " 🔍 Wireshark ", curses.A_NORMAL)
+            except curses.error:
+                pass
+            self.action_buttons.append(ClickRegion(
+                y_start=y_pos,
+                y_end=y_pos,
+                x_start=action_x,
+                x_end=action_x + 14,
+                action_id=1
+            ))
+        
+        try:
+            stdscr.addstr(y_pos + 1, 2, "└─")
+        except curses.error:
+            pass
+        
+        y_pos += 3
         draw_text_block(stdscr, y_pos, 2, w - 4, self.lines)
         
         self.button_regions = draw_touch_button_bar(stdscr, [
@@ -1258,6 +1306,21 @@ class SnifferScreen(BaseScreen):
                     self.selected_interface = self.interfaces[iface_clicked]
                     self._load()
                     return ScreenResult()
+                
+                # Check action buttons
+                action_clicked = check_mouse_click(mouse_event, self.action_buttons)
+                if action_clicked == 0:
+                    # Tcpdump - refresh the display
+                    self._load()
+                    return ScreenResult()
+                elif action_clicked == 1 and self.wireshark_available:
+                    # Open Wireshark
+                    rc = open_wireshark(self.selected_interface)
+                    if rc == 0:
+                        # Return to this screen after Wireshark closes
+                        return ScreenResult()
+                    else:
+                        return ScreenResult(message="Wireshark launch failed")
                 
                 # Check bottom buttons
                 button_clicked = check_mouse_click(mouse_event, self.button_regions)

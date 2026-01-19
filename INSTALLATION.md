@@ -33,6 +33,7 @@ sudo apt-get install -y net-tools
 sudo apt-get install -y iproute2
 sudo apt-get install -y iputils-ping
 sudo apt-get install -y wireless-tools
+sudo apt-get install -y wireshark       # Für GUI-basierte Paketanalyse
 ```
 
 #### Python
@@ -59,13 +60,22 @@ sudo visudo
 # Fügen Sie diese Zeilen am Ende der Datei hinzu:
 your_username ALL=(ALL) NOPASSWD: /usr/sbin/tcpdump
 your_username ALL=(ALL) NOPASSWD: /usr/bin/nmap
+your_username ALL=(ALL) NOPASSWD: /usr/bin/wireshark
 ```
 
 Ersetzen Sie `your_username` durch Ihren tatsächlichen Benutzernamen.
 
 **Alternative:** Wenn Sie sich eine Passwort-Eingabe leisten können, funktioniert die App auch ohne diese Konfiguration - sie zeigt dann die Passwort-Aufforderung an.
 
-### 5. Berechtigungen setzen (optional, wird durch Auto-Sudo ersetzt)
+### 5. Wireshark GUI Integration
+
+Der Network Sniffer bietet zwei Modi:
+- **TcpDump**: Paketerfassung direkt im TUI (terminal)
+- **Wireshark**: Öffnet die grafische Wireshark-GUI für detaillierte Analyse
+
+Nach der Wireshark-GUI wird der TUI automatisch wiederhergestellt und zeigt die ursprüngliche Sniffer-Anzeige.
+
+### 6. Berechtigungen setzen (optional, wird durch Auto-Sudo ersetzt)
 # Erlaubt tcpdump als normaler Benutzer
 sudo chmod +s /usr/bin/tcpdump
 

@@ -502,3 +502,49 @@ def sniff_packets(interface: str = "eth0", packet_count: int = 20, filter_str: s
     return results, warnings
 
 
+def open_wireshark(interface: str = None) -> int:
+    """
+    Open Wireshark GUI for interactive packet capture and analysis.
+    If interface is specified, Wireshark will capture on that interface.
+    Returns 0 on success, non-zero on failure.
+    """
+    import subprocess
+    import os
+    
+    try:
+        # Check if Wireshark is installed
+        rc, _, _ = run_cmd(["which", "wireshark"], timeout=2)
+        if rc != 0:
+            return 1  # Wireshark not installed
+        
+        # Build Wireshark command
+        cmd = []
+        
+        # Try to use wireshark with sudo if needed
+        try:
+            cmd = ["wireshark"]
+            if interface:
+                cmd.extend(["-i", interface])
+            
+            # Try to run Wireshark, may require sudo
+            subprocess.Popen(cmd)
+            return 0
+        except PermissionError:
+            # Retry with sudo
+            cmd = ["sudo", "wireshark"]
+            if interface:
+                cmd.extend(["-i", interface])
+            
+            subprocess.Popen(cmd)
+            return 0
+    
+    except Exception as e:
+        return 1
+
+
+def check_wireshark_available() -> bool:
+    """Check if Wireshark is installed and available"""
+    rc, _, _ = run_cmd(["which", "wireshark"], timeout=2)
+    return rc == 0
+
+
