@@ -702,84 +702,78 @@ class PortScannerScreen(BaseScreen):
     def __init__(self):
         self.lines: List[str] = []
         self.button_regions: List[ClickRegion] = []
-        self.scan_mode = "local"  # local, localhost, nmap, network
-        self.target = "localhost"
+        self.scan_mode = "local"  # local, nmap, network
         self.custom_ports = "1-100"  # Default port range
         self._load()
 
     def _load(self) -> None:
         lines: List[str] = []
         
-        lines.append("🔍 PORT SCANNER")
-        lines.append("─" * 30)
-        lines.append("")
-        
         if self.scan_mode == "local":
             # Show local system ports
-            lines.append("📊 LOCAL SYSTEM PORTS")
-            lines.append("(via netstat/ss)")
-            lines.append("─" * 30)
+            lines.append("┌─ LOCAL PORTS (netstat)")
             ports, warnings = check_open_ports()
             
             if warnings:
                 for w in warnings:
-                    lines.append(f"⚠ {w}")
-                lines.append("")
+                    lines.append(f"│ ⚠ {w}")
+                lines.append("│")
             
             if ports:
                 for port in ports[:20]:
-                    lines.append(port)
+                    lines.append(f"│ {port}")
             else:
-                lines.append("(No listening ports found)")
+                lines.append("│ (No listening ports)")
+            
+            lines.append("└─")
         
         elif self.scan_mode == "nmap":
             # Show nmap scan
-            lines.append("🎯 NMAP SCAN (localhost)")
-            lines.append(f"Ports: {self.custom_ports}")
-            lines.append("─" * 30)
+            lines.append(f"┌─ NMAP SCAN | Range: {self.custom_ports}")
             ports, warnings = scan_ports_with_nmap("localhost", self.custom_ports)
             
             if warnings:
                 for w in warnings:
-                    lines.append(f"⚠ {w}")
-                lines.append("")
-                lines.append("💡 To use nmap, install:")
-                lines.append("  sudo apt install nmap")
-                lines.append("")
+                    lines.append(f"│ ⚠ {w}")
+                lines.append("│")
+                lines.append("│ 💡 Install nmap:")
+                lines.append("│ sudo apt install nmap")
+                lines.append("│")
             
             if ports:
                 for port in ports[:25]:
-                    lines.append(port)
+                    lines.append(f"│ {port}")
             else:
-                lines.append("(No open ports detected)")
+                lines.append("│ (No open ports detected)")
+            
+            lines.append("└─")
         
         elif self.scan_mode == "network":
             # Show network scan
-            lines.append("🌐 NETWORK HOST DISCOVERY")
-            lines.append("(nmap -sn)")
-            lines.append("─" * 30)
             network, net_warn = get_local_network()
-            lines.append(f"Scanning: {network}")
-            lines.append("")
+            lines.append(f"┌─ NETWORK DISCOVERY | {network}")
+            lines.append("│")
             
             hosts, warnings = scan_network_with_nmap(network)
             
             if warnings:
                 for w in warnings:
-                    lines.append(f"⚠ {w}")
-                lines.append("")
+                    lines.append(f"│ ⚠ {w}")
+                lines.append("│")
             
             if hosts:
                 for host in hosts[:20]:
-                    lines.append(host)
+                    lines.append(f"│ {host}")
             else:
-                lines.append("(No hosts found)")
+                lines.append("│ (No hosts found)")
+            
+            lines.append("└─")
         
         self.lines = lines
 
     def render(self, stdscr) -> None:
         stdscr.clear()
-        draw_header(stdscr, self.title, self.scan_mode.upper())
+        draw_header(stdscr, self.title)
         h, w = stdscr.getmaxyx()
         draw_text_block(stdscr, 2, 2, w - 4, self.lines)
         
@@ -824,7 +818,6 @@ class CustomPortInputScreen(BaseScreen):
         self.input_text = "1-100"
         self.keyboard_regions: List[ClickRegion] = []
         self.button_regions: List[ClickRegion] = []
-        self.cursor_pos = len(self.input_text)
 
     def render(self, stdscr) -> None:
         stdscr.clear()
@@ -833,41 +826,50 @@ class CustomPortInputScreen(BaseScreen):
         safe_w = get_safe_width(stdscr)
         
         y_pos = 3
+        self.keyboard_regions = []
         
-        # Draw input field
+        # Draw input field with box
         try:
-            stdscr.addstr(y_pos, 2, "Port Range:")
+            stdscr.addstr(y_pos, 2, "┌─ PORT RANGE")
+            stdscr.addstr(y_pos + 1, 2, f"│ ")
             stdscr.attron(curses.A_REVERSE)
-            input_line = f" {self.input_text:<30} "[:safe_w - 2]
-            stdscr.addstr(y_pos + 1, 2, input_line)
+            input_display = f" {self.input_text:<40} "[:(safe_w - 6)]
+            stdscr.addstr(y_pos + 1, 4, input_display)
             stdscr.attroff(curses.A_REVERSE)
+            stdscr.addstr(y_pos + 2, 2, f"└─ Examples: 1-100, 22,80,443")
         except curses.error:
             pass
         
-        y_pos += 3
+        y_pos += 5
         
-        # Draw keyboard - Numbers
-        try:
-            stdscr.addstr(y_pos, 2, "Numbers:", curses.A_BOLD)
-        except curses.error:
-            pass
-        
+        # Draw keyboard grid - Numbers 0-9
         keyboard_numbers = [
             ["1", "2", "3", "4", "5"],
             ["6", "7", "8", "9", "0"],
         ]
         
-        self.keyboard_regions = []
-        button_width = max(4, (safe_w - 6) // 5)
+        button_width = 6
         
+        try:
+            stdscr.addstr(y_pos, 2, "┌─ KEYBOARD")
+            y_pos += 1
+        except curses.error:
+            pass
+        
+        # Numbers rows
         for row_idx, row in enumerate(keyboard_numbers):
-            row_y = y_pos + 1 + row_idx
+            try:
+                stdscr.addstr(y_pos + row_idx, 2, "│")
+            except curses.error:
+                pass
+            
             for col_idx, char in enumerate(row):
-                x_pos = 2 + (col_idx * button_width)
+                x_pos = 4 + (col_idx * (button_width + 1))
+                row_y = y_pos + row_idx
                 
                 try:
                     stdscr.attron(curses.A_REVERSE)
-                    btn_text = f" {char} ".center(button_width)[:button_width]
+                    btn_text = f" {char} ".center(button_width)
                     stdscr.addstr(row_y, x_pos, btn_text)
                     stdscr.attroff(curses.A_REVERSE)
                 except curses.error:
@@ -878,43 +880,51 @@ class CustomPortInputScreen(BaseScreen):
                     y_end=row_y,
                     x_start=x_pos,
                     x_end=x_pos + button_width - 1,
-                    action_id=int(char)  # 0-9
+                    action_id=int(char)
                 ))
         
-        y_pos += 3
+        y_pos += 2
         
-        # Draw special keys
+        # Special keys row
+        special_keys = [("─", 100), ("⌫", 101), ("C", 102)]
+        
         try:
-            stdscr.addstr(y_pos, 2, "Edit:", curses.A_BOLD)
+            stdscr.addstr(y_pos, 2, "│")
         except curses.error:
             pass
         
-        special_keys = ["-", "Backspace", "Clear"]
-        special_width = max(8, (safe_w - 6) // len(special_keys))
-        
-        for key_idx, key in enumerate(special_keys):
-            key_y = y_pos + 1
-            x_pos = 2 + (key_idx * special_width)
+        for key_idx, (key_char, key_id) in enumerate(special_keys):
+            x_pos = 4 + (key_idx * (button_width + 1))
             
             try:
                 stdscr.attron(curses.A_REVERSE)
-                key_text = f" {key} ".center(special_width)[:special_width]
-                stdscr.addstr(key_y, x_pos, key_text)
+                if key_char == "⌫":
+                    btn_text = "BACK".center(button_width)
+                elif key_char == "C":
+                    btn_text = "CLR".center(button_width)
+                else:
+                    btn_text = f" {key_char} ".center(button_width)
+                stdscr.addstr(y_pos, x_pos, btn_text)
                 stdscr.attroff(curses.A_REVERSE)
             except curses.error:
                 pass
             
             self.keyboard_regions.append(ClickRegion(
-                y_start=key_y,
-                y_end=key_y,
+                y_start=y_pos,
+                y_end=y_pos,
                 x_start=x_pos,
-                x_end=x_pos + special_width - 1,
-                action_id=100 + key_idx  # 100=dash, 101=backspace, 102=clear
+                x_end=x_pos + button_width - 1,
+                action_id=key_id
             ))
+        
+        try:
+            stdscr.addstr(y_pos + 1, 2, "└─")
+        except curses.error:
+            pass
         
         # Draw action buttons
         self.button_regions = draw_touch_button_bar(stdscr, [
-            ("Scan", 0),
+            ("✓ Scan", 0),
             ("← Back", 1),
         ])
 
@@ -926,13 +936,6 @@ class CustomPortInputScreen(BaseScreen):
                 # Check button bar first
                 button_clicked = check_mouse_click(mouse_event, self.button_regions)
                 if button_clicked == 0:
-                    # Start nmap with custom ports
-                    from tui.screens import PortScannerScreen as PSS
-                    pss = PortScannerScreen()
-                    pss.scan_mode = "nmap"
-                    pss.custom_ports = self.input_text
-                    pss._load()
-                    # We need to update the parent screen - return to port_scan with updated data
                     return ScreenResult(next_screen="port_scan")
                 elif button_clicked == 1:
                     return ScreenResult(next_screen="port_scan")
@@ -943,7 +946,7 @@ class CustomPortInputScreen(BaseScreen):
                     if keyboard_clicked < 10:  # 0-9
                         self.input_text += str(keyboard_clicked)
                     elif keyboard_clicked == 100:  # Dash
-                        if self.input_text and self.input_text[-1] != "-":
+                        if self.input_text and self.input_text[-1] != "-" and self.input_text[-1] != ",":
                             self.input_text += "-"
                     elif keyboard_clicked == 101:  # Backspace
                         self.input_text = self.input_text[:-1]
