@@ -334,10 +334,10 @@ def check_open_ports(host: str = "localhost") -> Tuple[List[str], List[str]]:
 
 # ============== NMAP PORT SCANNING ==============
 
-def scan_ports_with_nmap(target: str = "localhost", scan_type: str = "fast") -> Tuple[List[str], List[str]]:
+def scan_ports_with_nmap(target: str = "localhost", ports: str = "1-65535") -> Tuple[List[str], List[str]]:
     """
-    Scan ports using nmap.
-    scan_type: 'fast' (top 100), 'common' (top 1000), 'full' (all)
+    Scan specific ports using nmap.
+    ports: port range like "1-1000" or "22,80,443" or "1-100" 
     """
     warnings: List[str] = []
     results: List[str] = []
@@ -347,21 +347,12 @@ def scan_ports_with_nmap(target: str = "localhost", scan_type: str = "fast") -> 
     if rc != 0:
         return results, ["nmap not installed. Install with: sudo apt install nmap"]
     
+    # Validate port range
+    if not ports:
+        ports = "1-65535"
+    
     # Build nmap command
-    cmd = ["nmap"]
-    
-    # Add scan type
-    if scan_type == "fast":
-        cmd.append("-F")  # Scan top 100 ports
-    elif scan_type == "common":
-        cmd.extend(["-p", "1-10000"])  # Top 10000 ports
-    elif scan_type == "full":
-        cmd.extend(["-p", "-"])  # All ports (65535)
-    else:
-        cmd.append("-F")
-    
-    # Add target
-    cmd.append(target)
+    cmd = ["nmap", "-p", ports, target]
     
     # Run nmap
     rc, out, err = run_cmd(cmd, timeout=30)
@@ -393,7 +384,7 @@ def scan_ports_with_nmap(target: str = "localhost", scan_type: str = "fast") -> 
     if not results:
         # Try to extract summary info if no ports found
         for line in lines:
-            if "All" in line and "ports" in line and "filtered" in line:
+            if "All" in line and "ports" in line:
                 results.append(line.strip()[:70])
     
     return results, warnings
