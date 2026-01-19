@@ -741,6 +741,30 @@ class PortScannerScreen(BaseScreen):
     def _load(self) -> None:
         lines: List[str] = []
         
+        # Check if we came from CustomPortInputScreen with custom ports
+        if CustomPortInputScreen.custom_ports_to_scan != "1-100":
+            self.scan_mode = "nmap"
+            self.custom_ports = CustomPortInputScreen.custom_ports_to_scan
+            self.selected_interface = CustomPortInputScreen.current_interface
+            CustomPortInputScreen.custom_ports_to_scan = "1-100"  # Reset
+        
+        # Show interface info
+        lines.append(f"┌─ INTERFACE: {self.selected_interface}")
+        
+        # Get interface details
+        ifaces, _ = get_interfaces()
+        for iface in ifaces:
+            if iface.name == self.selected_interface:
+                lines.append(f"│ State: {iface.state or '?'}")
+                lines.append(f"│ MAC: {iface.mac or 'N/A'}")
+                if iface.ipv4:
+                    for ip in iface.ipv4:
+                        lines.append(f"│ IPv4: {ip}")
+                break
+        
+        lines.append("└─")
+        lines.append("")
+        
         if self.scan_mode == "local":
             # Show local system ports
             lines.append("┌─ LOCAL PORTS (netstat)")
@@ -761,8 +785,10 @@ class PortScannerScreen(BaseScreen):
         
         elif self.scan_mode == "nmap":
             # Show nmap scan
-            lines.append(f"┌─ NMAP SCAN | Range: {self.custom_ports}")
-            ports, warnings = scan_ports_with_nmap("localhost", self.custom_ports)
+            lines.append(f"┌─ NMAP SCAN | {self.selected_interface} | Range: {self.custom_ports}")
+            # Use selected_interface for scanning (if it's "all", use localhost)
+            target = "localhost" if self.selected_interface == "all" else self.selected_interface
+            ports, warnings = scan_ports_with_nmap(target, self.custom_ports)
             
             if warnings:
                 for w in warnings:
@@ -914,6 +940,10 @@ class PortScannerScreen(BaseScreen):
                 mode_clicked = check_mouse_click(mouse_event, self.scan_mode_buttons)
                 if mode_clicked is not None:
                     if mode_clicked == 3:  # Custom
+                        # Pass selected_interface to CustomPortInputScreen
+                        from tui.app import TuiApp
+                        # Store in a class variable for retrieval
+                        CustomPortInputScreen.current_interface = self.selected_interface
                         return ScreenResult(next_screen="custom_port_input")
                     else:
                         modes = ["local", "nmap", "network"]
@@ -940,11 +970,16 @@ class CustomPortInputScreen(BaseScreen):
     """Virtual keyboard for custom port range input"""
     name = "custom_port_input"
     title = "Custom Port Range"
+    
+    # Class variable to store interface from PortScannerScreen
+    current_interface = "localhost"
+    custom_ports_to_scan = "1-100"
 
-    def __init__(self):
-        self.input_text = "1-100"
+    def __init__(self, selected_interface: str = "localhost"):
+        self.input_text = CustomPortInputScreen.custom_ports_to_scan
         self.keyboard_regions: List[ClickRegion] = []
         self.button_regions: List[ClickRegion] = []
+        self.selected_interface = selected_interface or CustomPortInputScreen.current_interface
 
     def render(self, stdscr) -> None:
         stdscr.clear()
@@ -1051,8 +1086,8 @@ class CustomPortInputScreen(BaseScreen):
         
         # Draw action buttons
         self.button_regions = draw_touch_button_bar(stdscr, [
-            ("← Back", 0),
-            ("🔄 Sync", 1),
+            ("✓ Go", 0),
+            ("← Back", 1),
             ("Home", 2),
         ])
 
@@ -1064,9 +1099,14 @@ class CustomPortInputScreen(BaseScreen):
                 # Check button bar first
                 button_clicked = check_mouse_click(mouse_event, self.button_regions)
                 if button_clicked == 0:
+                    # Go - save ports and interface, return to port_scan
+                    CustomPortInputScreen.custom_ports_to_scan = self.input_text
+                    CustomPortInputScreen.current_interface = self.selected_interface
                     return ScreenResult(next_screen="port_scan")
                 elif button_clicked == 1:
                     return ScreenResult(next_screen="port_scan")
+                elif button_clicked == 2:
+                    return ScreenResult(next_screen="main")
                 
                 # Check keyboard
                 keyboard_clicked = check_mouse_click(mouse_event, self.keyboard_regions)
