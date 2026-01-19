@@ -784,10 +784,18 @@ class PortScannerScreen(BaseScreen):
             lines.append("└─")
         
         elif self.scan_mode == "nmap":
-            # Show nmap scan
+            # Show nmap scan with custom ports on selected interface
             lines.append(f"┌─ NMAP SCAN | {self.selected_interface} | Range: {self.custom_ports}")
-            # Use selected_interface for scanning (if it's "all", use localhost)
-            target = "localhost" if self.selected_interface == "all" else self.selected_interface
+            
+            # Get the network range for the selected interface
+            if self.selected_interface == "all" or self.selected_interface == "localhost":
+                # Scan localhost
+                target = "localhost"
+            else:
+                # Get the local network range for this interface
+                network, net_warn = get_local_network()
+                target = network if network else "localhost"
+            
             ports, warnings = scan_ports_with_nmap(target, self.custom_ports)
             
             if warnings:
