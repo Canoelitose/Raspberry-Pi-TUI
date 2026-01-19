@@ -1153,6 +1153,9 @@ class SnifferScreen(BaseScreen):
     title = "Network Sniffer"
 
     def __init__(self):
+        import threading
+        import queue
+        
         self.lines: List[str] = []
         self.button_regions: List[ClickRegion] = []
         self.interface_buttons: List[ClickRegion] = []
@@ -1163,6 +1166,13 @@ class SnifferScreen(BaseScreen):
         self.interfaces: List[str] = []
         self.tshark_available = check_tshark_available()
         self.wireshark_available = check_wireshark_available()
+        
+        # Live packet capture for TShark
+        self.live_packets: List[str] = []
+        self.live_capture_active = False
+        self.packet_queue = queue.Queue()
+        self.capture_thread = None
+        
         self._load_interfaces()
         self._load()
 
@@ -1175,34 +1185,107 @@ class SnifferScreen(BaseScreen):
         if not self.selected_interface:
             self.selected_interface = self.interfaces[0]
 
+    def _start_live_capture(self) -> None:
+        """Start background thread for live packet capture"""
+        import threading
+        
+        if self.live_capture_active or self.selected_mode != 1:
+            return
+        
+        self.live_capture_active = True
+        self.capture_thread = threading.Thread(target=self._live_capture_worker, daemon=True)
+        self.capture_thread.start()
+
+    def _stop_live_capture(self) -> None:
+        """Stop background live capture thread"""
+        self.live_capture_active = False
+
+    def _live_capture_worker(self) -> None:
+        """Background worker that continuously captures packets"""
+        import time
+        
+        while self.live_capture_active:
+            try:
+                # Capture 5 packets every 1 second for live updates
+                packets, warnings = sniff_packets_with_tshark(
+                    self.selected_interface, 
+                    packet_count=5
+                )
+                
+                if packets and packets[0] != "(No packets captured)":
+                    # Add new packets to queue
+                    for packet in packets:
+                        self.packet_queue.put(packet)
+                
+                # Keep only last 50 packets
+                while self.packet_queue.qsize() > 50:
+                    try:
+                        self.packet_queue.get_nowait()
+                    except:
+                        break
+                
+                time.sleep(1)  # Update every second
+            except Exception as e:
+                time.sleep(1)
+
+    def _update_live_packets(self) -> None:
+        """Update live_packets from queue"""
+        import queue as queue_module
+        
+        # Drain all packets from queue
+        packets_list = []
+        try:
+            while True:
+                packets_list.append(self.packet_queue.get_nowait())
+        except queue_module.Empty:
+            pass
+        
+        # Keep newest 25 packets
+        self.live_packets = (self.live_packets + packets_list)[-25:]
+
     def _load(self) -> None:
         lines: List[str] = []
         
         # Show interface and settings
         mode_name = ["TcpDump", "TShark", "Wireshark"][self.selected_mode]
-        lines.append(f"┌─ SNIFFER | {self.selected_interface} | {self.packet_count} packets | {mode_name}")
-        lines.append("│")
         
-        # Run sniffer based on selected mode
-        if self.selected_mode == 0:
-            # TcpDump mode
-            packets, warnings = sniff_packets(self.selected_interface, self.packet_count)
-        elif self.selected_mode == 1:
-            # TShark mode
-            packets, warnings = sniff_packets_with_tshark(self.selected_interface, self.packet_count)
-        else:
-            packets, warnings = [], []
-        
-        if warnings:
-            for w in warnings:
-                lines.append(f"│ ⚠ {w}")
+        if self.selected_mode == 1:
+            # TShark Live mode
+            self._update_live_packets()
+            lines.append(f"┌─ SNIFFER | {self.selected_interface} | LIVE | TShark")
+            lines.append("│ (Updates every second)")
             lines.append("│")
-        
-        if packets:
-            for packet in packets[:25]:
-                lines.append(f"│ {packet}")
+            
+            if self.live_packets:
+                for packet in self.live_packets[-20:]:
+                    lines.append(f"│ {packet}")
+            else:
+                lines.append("│ (Waiting for packets...)")
         else:
-            lines.append("│ (No packets captured)")
+            # Static capture modes
+            lines.append(f"┌─ SNIFFER | {self.selected_interface} | {self.packet_count} packets | {mode_name}")
+            lines.append("│")
+            
+            # Run sniffer based on selected mode
+            if self.selected_mode == 0:
+                # TcpDump mode
+                packets, warnings = sniff_packets(self.selected_interface, self.packet_count)
+            elif self.selected_mode == 1:
+                # TShark mode (this shouldn't happen now, but keep for safety)
+                packets, warnings = sniff_packets_with_tshark(self.selected_interface, self.packet_count)
+            else:
+                packets, warnings = [], []
+            
+            if warnings:
+                for w in warnings:
+                    lines.append(f"│ ⚠ {w}")
+                lines.append("│")
+            
+            if packets:
+                for packet in packets[:25]:
+                    lines.append(f"│ {packet}")
+            else:
+                lines.append("│ (No packets captured)")
         
         lines.append("└─")
         self.lines = lines
@@ -1329,8 +1412,10 @@ class SnifferScreen(BaseScreen):
                 # Check interface buttons
                 iface_clicked = check_mouse_click(mouse_event, self.interface_buttons)
                 if iface_clicked is not None:
+                    self._stop_live_capture()
                     self.selected_interface = self.interfaces[iface_clicked]
                     self._load()
+                    self._start_live_capture()
                     return ScreenResult()
                 
                 # Check action buttons
@@ -1338,16 +1423,20 @@ class SnifferScreen(BaseScreen):
                 if action_clicked is not None:
                     if action_clicked == 0:
                         # TcpDump mode
+                        self._stop_live_capture()
                         self.selected_mode = 0
                         self._load()
                         return ScreenResult()
                     elif action_clicked == 1 and self.tshark_available:
-                        # TShark mode
+                        # TShark mode (with LIVE capture)
                         self.selected_mode = 1
+                        self.live_packets = []  # Reset packets
                         self._load()
+                        self._start_live_capture()  # Start background thread
                         return ScreenResult()
                     elif action_clicked == 2 and self.wireshark_available:
                         # Wireshark GUI mode
+                        self._stop_live_capture()
                         rc = open_wireshark(self.selected_interface)
                         if rc == 0:
                             return ScreenResult()
@@ -1357,10 +1446,18 @@ class SnifferScreen(BaseScreen):
                 # Check bottom buttons
                 button_clicked = check_mouse_click(mouse_event, self.button_regions)
                 if button_clicked == 0:
+                    self._stop_live_capture()
                     return ScreenResult(next_screen="hacker")
                 elif button_clicked == 1:
-                    self._load()
+                    # Sync - reload data
+                    if self.selected_mode == 1:
+                        # TShark live: just update display
+                        self._load()
+                    else:
+                        # Static modes: reload
+                        self._load()
                 elif button_clicked == 2:
+                    self._stop_live_capture()
                     return ScreenResult(next_screen="main")
             except:
                 pass

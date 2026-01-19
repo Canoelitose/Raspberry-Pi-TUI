@@ -76,18 +76,23 @@ class TuiApp:
         
         # Enable mouse events for touchscreen and mouse support
         curses.mousemask(curses.BUTTON1_CLICKED | curses.BUTTON3_CLICKED)
+        
+        # Set non-blocking mode for live updates
+        stdscr.nodelay(True)
+        stdscr.timeout(500)  # 500ms timeout for responsive live updates
 
         while True:
             self.current.render(stdscr)
             stdscr.refresh()
 
             key = stdscr.getch()
-            result = self.current.handle_key(key)
+            if key != -1:  # -1 means timeout (no key pressed)
+                result = self.current.handle_key(key)
 
-            if result.next_screen == "quit":
-                break
-            if result.next_screen and result.next_screen != self.current_name:
-                self.switch(result.next_screen)
+                if result.next_screen == "quit":
+                    break
+                if result.next_screen and result.next_screen != self.current_name:
+                    self.switch(result.next_screen)
 
 
 def start() -> None:
