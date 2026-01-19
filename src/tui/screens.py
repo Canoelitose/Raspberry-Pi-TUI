@@ -1263,21 +1263,25 @@ class SnifferScreen(BaseScreen):
         
         self.action_buttons = []
         action_x = 2
+        button_idx = 0  # Track actual clickable buttons
         
         # Mode buttons
         modes = [
-            (0, "📊 TcpDump", True),  # Always available
-            (1, "🔍 TShark", self.tshark_available),
-            (2, "🖥️ Wireshark", self.wireshark_available),
+            ("📊 TcpDump", True),      # Always available
+            ("🔍 TShark", self.tshark_available),
+            ("🖥️ Wireshark", self.wireshark_available),
         ]
         
-        for mode_id, label, available in modes:
+        for mode_idx, (label, available) in enumerate(modes):
             if available:
-                is_selected = (mode_id == self.selected_mode)
+                is_selected = (mode_idx == self.selected_mode)
+                button_width = 14
                 try:
                     if is_selected:
                         stdscr.attron(curses.A_REVERSE)
-                    stdscr.addstr(y_pos, action_x, label)
+                    # Center the label in fixed width button
+                    btn_text = label.center(button_width)[:button_width]
+                    stdscr.addstr(y_pos, action_x, btn_text)
                     if is_selected:
                         stdscr.attroff(curses.A_REVERSE)
                 except curses.error:
@@ -1287,19 +1291,21 @@ class SnifferScreen(BaseScreen):
                     y_start=y_pos,
                     y_end=y_pos,
                     x_start=action_x,
-                    x_end=action_x + len(label) - 1,
-                    action_id=mode_id
+                    x_end=action_x + button_width - 1,
+                    action_id=mode_idx  # Store the mode index
                 ))
-                action_x += len(label) + 2
+                action_x += button_width + 1
             else:
                 # Unavailable mode shown in gray
+                button_width = 14
                 try:
                     stdscr.attron(curses.A_DIM)
-                    stdscr.addstr(y_pos, action_x, label)
+                    btn_text = label.center(button_width)[:button_width]
+                    stdscr.addstr(y_pos, action_x, btn_text)
                     stdscr.attroff(curses.A_DIM)
                 except curses.error:
                     pass
-                action_x += len(label) + 2
+                action_x += button_width + 1
         
         try:
             stdscr.addstr(y_pos + 1, 2, "└─")
