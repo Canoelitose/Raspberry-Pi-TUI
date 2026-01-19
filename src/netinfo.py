@@ -334,10 +334,12 @@ def check_open_ports(host: str = "localhost") -> Tuple[List[str], List[str]]:
 
 # ============== NMAP PORT SCANNING ==============
 
-def scan_ports_with_nmap(target: str = "localhost", ports: str = "1-65535") -> Tuple[List[str], List[str]]:
+def scan_ports_with_nmap(target: str = "localhost", ports: str = "1-65535", interface: str = None) -> Tuple[List[str], List[str]]:
     """
     Scan specific ports using nmap.
+    target: target IP or network range
     ports: port range like "1-1000" or "22,80,443" or "1-100" 
+    interface: network interface to use (e.g. "eth0", "wlan0")
     """
     warnings: List[str] = []
     results: List[str] = []
@@ -352,7 +354,13 @@ def scan_ports_with_nmap(target: str = "localhost", ports: str = "1-65535") -> T
         ports = "1-65535"
     
     # Build nmap command
-    cmd = ["nmap", "-p", ports, target]
+    cmd = ["nmap", "-p", ports]
+    
+    # Add interface if specified
+    if interface and interface not in ["all", "localhost"]:
+        cmd.extend(["-e", interface])
+    
+    cmd.append(target)
     
     # Run nmap
     rc, out, err = run_cmd(cmd, timeout=30)
@@ -390,10 +398,11 @@ def scan_ports_with_nmap(target: str = "localhost", ports: str = "1-65535") -> T
     return results, warnings
 
 
-def scan_network_with_nmap(network: str = "192.168.1.0/24") -> Tuple[List[str], List[str]]:
+def scan_network_with_nmap(network: str = "192.168.1.0/24", interface: str = None) -> Tuple[List[str], List[str]]:
     """
     Scan a network for active hosts using nmap -sn (ping scan).
     network: CIDR notation like "192.168.1.0/24"
+    interface: network interface to use (e.g. "eth0", "wlan0")
     """
     warnings: List[str] = []
     results: List[str] = []
@@ -404,7 +413,13 @@ def scan_network_with_nmap(network: str = "192.168.1.0/24") -> Tuple[List[str], 
         return results, ["nmap not installed. Install with: sudo apt install nmap"]
     
     # Run nmap network discovery
-    cmd = ["nmap", "-sn", network]
+    cmd = ["nmap", "-sn"]
+    
+    # Add interface if specified
+    if interface and interface not in ["all", "localhost"]:
+        cmd.extend(["-e", interface])
+    
+    cmd.append(network)
     rc, out, err = run_cmd(cmd, timeout=30)
     
     if rc != 0:

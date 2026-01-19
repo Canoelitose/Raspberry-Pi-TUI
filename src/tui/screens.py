@@ -791,12 +791,14 @@ class PortScannerScreen(BaseScreen):
             if self.selected_interface == "all" or self.selected_interface == "localhost":
                 # Scan localhost
                 target = "localhost"
+                interface = None
             else:
                 # Get the local network range for this interface
                 network, net_warn = get_local_network()
                 target = network if network else "localhost"
+                interface = self.selected_interface
             
-            ports, warnings = scan_ports_with_nmap(target, self.custom_ports)
+            ports, warnings = scan_ports_with_nmap(target, self.custom_ports, interface)
             
             if warnings:
                 for w in warnings:
@@ -817,10 +819,12 @@ class PortScannerScreen(BaseScreen):
         elif self.scan_mode == "network":
             # Show network scan
             network, net_warn = get_local_network()
-            lines.append(f"┌─ NETWORK DISCOVERY | {network}")
+            lines.append(f"┌─ NETWORK DISCOVERY | {self.selected_interface} | {network}")
             lines.append("│")
             
-            hosts, warnings = scan_network_with_nmap(network)
+            # Pass interface to nmap
+            interface = None if self.selected_interface in ["all", "localhost"] else self.selected_interface
+            hosts, warnings = scan_network_with_nmap(network, interface)
             
             if warnings:
                 for w in warnings:
