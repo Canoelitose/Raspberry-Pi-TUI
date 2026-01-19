@@ -987,20 +987,28 @@ class CustomPortInputScreen(BaseScreen):
     current_interface = "localhost"
     custom_ports_to_scan = "1-1000"
 
-    def __init__(self, selected_interface: str = "localhost"):
+    def __init__(self):
+        # Always use the class variable current_interface (set by PortScannerScreen)
         self.input_text = CustomPortInputScreen.custom_ports_to_scan
         self.keyboard_regions: List[ClickRegion] = []
         self.button_regions: List[ClickRegion] = []
-        self.selected_interface = selected_interface or CustomPortInputScreen.current_interface
+        self.selected_interface = CustomPortInputScreen.current_interface
 
     def render(self, stdscr) -> None:
         stdscr.clear()
-        draw_header(stdscr, self.title)
+        draw_header(stdscr, self.title, f"({self.selected_interface})")
         h, w = stdscr.getmaxyx()
         safe_w = get_safe_width(stdscr)
         
         y_pos = 3
         self.keyboard_regions = []
+        
+        # Draw interface info
+        try:
+            stdscr.addstr(y_pos, 2, f"┌─ INTERFACE: {self.selected_interface}")
+            y_pos += 1
+        except curses.error:
+            pass
         
         # Draw input field with box
         try:
