@@ -1,0 +1,208 @@
+# Multi-Hacker Tool - Installationsanleitung
+
+## Schnellstart
+
+```bash
+# 1. Setup-Skript ausführen (alle Abhängigkeiten installieren)
+sudo bash setup.sh
+
+# 2. App starten
+bash start.sh
+```
+
+## Schritt-für-Schritt Installation
+
+### Voraussetzungen
+- Raspberry Pi / Linux System
+- Internet-Verbindung
+- Root-Zugriff (sudo)
+
+### 1. System-Updates
+```bash
+sudo apt-get update
+sudo apt-get upgrade
+```
+
+### 2. Abhängige Tools installieren
+
+#### Netzwerk-Tools
+```bash
+sudo apt-get install -y nmap
+sudo apt-get install -y tcpdump
+sudo apt-get install -y net-tools
+sudo apt-get install -y iproute2
+sudo apt-get install -y iputils-ping
+sudo apt-get install -y wireless-tools
+```
+
+#### Python
+```bash
+sudo apt-get install -y python3
+sudo apt-get install -y python3-pip
+```
+
+### 3. Python-Abhängigkeiten (falls vorhanden)
+```bash
+pip3 install -r requirements.txt
+```
+
+### 4. Berechtigungen setzen (optional aber empfohlen)
+```bash
+# Erlaubt tcpdump als normaler Benutzer
+sudo chmod +s /usr/bin/tcpdump
+
+# Erlaubt nmap als normaler Benutzer  
+sudo chmod +s /usr/bin/nmap
+```
+
+### 5. App starten
+
+#### Option A: Mit automatischem Setup
+```bash
+cd Raspberry-Pi-TUI
+sudo bash setup.sh
+bash start.sh
+```
+
+#### Option B: Manuelle Installation
+```bash
+cd Raspberry-Pi-TUI
+python3 src/main.py
+```
+
+#### Option C: Mit sudo (empfohlen)
+```bash
+cd Raspberry-Pi-TUI
+sudo python3 src/main.py
+```
+
+## Features und Requirements
+
+### Network Interfaces
+- Zeigt alle Netzwerkkarten
+- IP-Adressen (IPv4/IPv6)
+- MAC-Adressen
+- **Kein zusätzliches Tool nötig**
+
+### Network Diagnostics
+- Ping zu Hosts
+- DNS-Server anzeigen
+- Default Route
+- **Tools: ping, ip route**
+
+### Bluetooth
+- Geräte anzeigen
+- Bluetooth-Status
+- **Tool: bluetoothctl**
+
+### System Info
+- Hostname, Uptime
+- RAM-Auslastung
+- Disk-Auslastung
+- **Tools: /proc/meminfo, df**
+
+### Port Scanner
+- Local Ports (netstat)
+- **NMAP Scans** (benötigt: `sudo apt install nmap`)
+  - Localhost-Scan
+  - Netzwerk-Discovery (-sn)
+  - Custom Port Ranges
+  - Interface-Auswahl
+- **Berechtigungen**: sudo empfohlen
+
+### Network Sniffer  
+- Packet Capture
+- Interface-Auswahl
+- **Tool: tcpdump** (benötigt: `sudo apt install tcpdump`)
+- **Berechtigungen**: sudo erforderlich
+
+## Fehlerbehebung
+
+### "nmap not installed"
+```bash
+sudo apt-get install nmap
+```
+
+### "tcpdump not installed"
+```bash
+sudo apt-get install tcpdump
+```
+
+### "Permission denied" bei tcpdump/nmap
+```bash
+# Entweder mit sudo starten:
+sudo python3 src/main.py
+
+# Oder Berechtigungen setzen:
+sudo chmod +s /usr/bin/nmap
+sudo chmod +s /usr/bin/tcpdump
+```
+
+### "No module named 'curses'"
+```bash
+python3 -m curses
+# Falls das fehlschlägt:
+sudo apt-get install python3-dev
+```
+
+## System-Anforderungen
+
+### Minimum
+- Python 3.6+
+- 256 MB RAM
+- Linux/Raspberry Pi OS
+- curses library (standardmäßig enthalten)
+
+### Empfohlen
+- Python 3.8+
+- 512 MB RAM
+- Neuere Raspberry Pi (3B+ oder besser)
+- sudo-Zugriff
+
+## Automatisierung
+
+### Systemd Service (optional)
+
+Erstelle `/etc/systemd/system/hacker-tool.service`:
+```ini
+[Unit]
+Description=Multi-Hacker Tool TUI
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/Raspberry-Pi-TUI
+ExecStart=/usr/bin/python3 /home/pi/Raspberry-Pi-TUI/src/main.py
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Dann starten mit:
+```bash
+sudo systemctl start hacker-tool
+sudo systemctl enable hacker-tool  # Auto-start
+```
+
+## Lizenz & Sicherheit
+
+⚠️ **Security Notice:**
+- Dieses Tool ist nur für Netzwerk-Administratoren und ethisches Hacking gedacht
+- Benutzen Sie es nur in Netzwerken, deren Eigentümer Sie sind oder für die Sie Erlaubnis haben
+- Packet Sniffing und Port Scanning ohne Erlaubnis ist illegal
+- Folgt allen Linux-Richtlinien und Gesetzen
+
+## Support
+
+Für Probleme bitte die Logs überprüfen:
+```bash
+# Mit stderr anzeigen:
+python3 src/main.py 2>&1
+```
+
+---
+
+**Version**: 0.3.1  
+**Status**: Production Ready ✓
