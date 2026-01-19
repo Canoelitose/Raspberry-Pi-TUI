@@ -11,7 +11,8 @@ from netinfo import (
     get_system_info, get_disk_usage, get_memory_info, check_open_ports,
     scan_ports_with_nmap, scan_network_with_nmap, get_local_network, sniff_packets,
     sniff_packets_with_tshark, check_tshark_available,
-    open_wireshark, check_wireshark_available
+    open_wireshark, check_wireshark_available,
+    monitor_keyboard_events, get_keyboard_devices, capture_keyboard_events
 )
 
 
@@ -679,6 +680,7 @@ class HackerToolsScreen(BaseScreen):
         self.items = [
             "Port Scanner",
             "Network Sniffer",
+            "Keystroke Logger",
             "Packet Tools",
             "← Back",
         ]
@@ -706,7 +708,7 @@ class HackerToolsScreen(BaseScreen):
                 mouse_event = curses.getmouse()
                 clicked_item = check_mouse_click(mouse_event, self.menu_regions)
                 if clicked_item is not None:
-                    screens = ["port_scan", "sniffer", "packets", "main"]
+                    screens = ["port_scan", "sniffer", "keylogger", "packets", "main"]
                     if clicked_item < len(screens):
                         return ScreenResult(next_screen=screens[clicked_item])
             except:
@@ -1458,6 +1460,181 @@ class SnifferScreen(BaseScreen):
                         self._load()
                 elif button_clicked == 2:
                     self._stop_live_capture()
+                    return ScreenResult(next_screen="main")
+            except:
+                pass
+        
+        return ScreenResult()
+
+
+class KeyloggerScreen(BaseScreen):
+    name = "keylogger"
+    title = "⌨️ Keystroke Logger"
+
+    def __init__(self):
+        self.lines: List[str] = []
+        self.button_regions: List[ClickRegion] = []
+        self.mode_buttons: List[ClickRegion] = []
+        self.device_buttons: List[ClickRegion] = []
+        self.mode = 0  # 0=info, 1=devices, 2=capture
+        self.devices: List[str] = []
+        self.selected_device = None
+        self._load()
+
+    def _load(self) -> None:
+        lines: List[str] = []
+        lines.append("┌─ KEYSTROKE LOGGER")
+        lines.append("│")
+        lines.append("│ ⚠️  SECURITY NOTICE:")
+        lines.append("│ This tool captures keyboard events for authorized")
+        lines.append("│ security testing on YOUR OWN system only.")
+        lines.append("│")
+        lines.append("│ ✓ Educational/Testing purposes")
+        lines.append("│ ✓ System monitoring")
+        lines.append("│ ✗ Unauthorized surveillance is ILLEGAL")
+        lines.append("│")
+        
+        if self.mode == 0:
+            # Info mode
+            lines.append("│ Steps:")
+            lines.append("│ 1. Click 'List Devices' to see input devices")
+            lines.append("│ 2. Select a device to monitor")
+            lines.append("│ 3. Click 'Start Capture' to record events")
+            lines.append("│")
+            lines.append("│ Uses: evtest (kernel input event monitoring)")
+        
+        elif self.mode == 1:
+            # Device list mode
+            devices, warnings = get_keyboard_devices()
+            
+            if warnings:
+                for w in warnings:
+                    lines.append(f"│ ⚠ {w}")
+            
+            lines.append("│")
+            lines.append("│ Available Devices:")
+            
+            if devices:
+                self.devices = devices
+                for i, dev in enumerate(devices[:10]):
+                    marker = "→" if dev == self.selected_device else " "
+                    lines.append(f"│ {marker} {dev[:70]}")
+            else:
+                lines.append("│ (No devices found)")
+                lines.append("│ Try: sudo evtest")
+        
+        elif self.mode == 2:
+            # Capture mode
+            if self.selected_device:
+                lines.append(f"│ Device: {self.selected_device[:60]}")
+                lines.append("│")
+                lines.append("│ Capturing keyboard events (5 sec)...")
+                
+                # Extract device path from selected_device
+                device_path = self.selected_device.split(":")[0].strip()
+                events, warnings = capture_keyboard_events(device_path, duration=5)
+                
+                if warnings:
+                    lines.append("│")
+                    for w in warnings:
+                        lines.append(f"│ ⚠ {w}")
+                
+                if events:
+                    lines.append("│")
+                    for event in events[:15]:
+                        lines.append(f"│ {event}")
+                else:
+                    lines.append("│ (No events captured)")
+            else:
+                lines.append("│ No device selected")
+        
+        lines.append("└─")
+        self.lines = lines
+
+    def render(self, stdscr) -> None:
+        stdscr.clear()
+        draw_header(stdscr, self.title)
+        h, w = stdscr.getmaxyx()
+        safe_w = get_safe_width(stdscr)
+        
+        y_pos = 2
+        
+        # Draw mode buttons
+        try:
+            stdscr.addstr(y_pos, 2, "┌─ MODE", curses.A_BOLD)
+            y_pos += 1
+        except curses.error:
+            pass
+        
+        self.mode_buttons = []
+        modes = [
+            ("ℹ️ Info", 0),
+            ("📋 List", 1),
+            ("⏹️ Capture", 2),
+        ]
+        
+        action_x = 2
+        for label, mode_idx in modes:
+            is_selected = (mode_idx == self.mode)
+            button_width = 12
+            try:
+                if is_selected:
+                    stdscr.attron(curses.A_REVERSE)
+                btn_text = label.center(button_width)[:button_width]
+                stdscr.addstr(y_pos, action_x, btn_text)
+                if is_selected:
+                    stdscr.attroff(curses.A_REVERSE)
+            except curses.error:
+                pass
+            
+            self.mode_buttons.append(ClickRegion(
+                y_start=y_pos,
+                y_end=y_pos,
+                x_start=action_x,
+                x_end=action_x + button_width - 1,
+                action_id=mode_idx
+            ))
+            action_x += button_width + 1
+        
+        try:
+            stdscr.addstr(y_pos + 1, 2, "└─")
+        except curses.error:
+            pass
+        
+        y_pos += 3
+        draw_text_block(stdscr, y_pos, 2, w - 4, self.lines)
+        
+        self.button_regions = draw_touch_button_bar(stdscr, [
+            ("← Back", 0),
+            ("🔄 Refresh", 1),
+            ("Home", 2),
+        ])
+
+    def handle_key(self, key: int) -> ScreenResult:
+        if key == curses.KEY_MOUSE:
+            try:
+                mouse_event = curses.getmouse()
+                
+                # Check mode buttons
+                mode_clicked = check_mouse_click(mouse_event, self.mode_buttons)
+                if mode_clicked is not None:
+                    self.mode = mode_clicked
+                    self._load()
+                    return ScreenResult()
+                
+                # Check device buttons
+                dev_clicked = check_mouse_click(mouse_event, self.device_buttons)
+                if dev_clicked is not None and dev_clicked < len(self.devices):
+                    self.selected_device = self.devices[dev_clicked]
+                    return ScreenResult()
+                
+                # Check bottom buttons
+                button_clicked = check_mouse_click(mouse_event, self.button_regions)
+                if button_clicked == 0:
+                    return ScreenResult(next_screen="hacker")
+                elif button_clicked == 1:
+                    self._load()
+                elif button_clicked == 2:
                     return ScreenResult(next_screen="main")
             except:
                 pass

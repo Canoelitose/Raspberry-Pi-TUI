@@ -19,6 +19,7 @@ from tui.screens import (
     PortScannerScreen,
     CustomPortInputScreen,
     SnifferScreen,
+    KeyloggerScreen,
     PacketsScreen,
     SettingsScreen,
 )
@@ -42,6 +43,7 @@ class TuiApp:
             "port_scan": PortScannerScreen,
             "custom_port_input": CustomPortInputScreen,
             "sniffer": SnifferScreen,
+            "keylogger": KeyloggerScreen,
             "packets": PacketsScreen,
             "settings": SettingsScreen,
         }

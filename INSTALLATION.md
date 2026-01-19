@@ -1,16 +1,23 @@
 # Multi-Hacker Tool - Installationsanleitung
 
-## Schnellstart
+## ⚡ Schnellstart (Automatisch)
 
 ```bash
-# 1. Setup-Skript ausführen (alle Abhängigkeiten installieren)
+# 1. Setup-Skript ausführen (installiert ALLES automatisch!)
 sudo bash setup.sh
 
-# 2. App starten (ohne sudo erforderlich - Auto-Sudo ist aktiviert!)
+# 2. App starten (ohne sudo erforderlich - Auto-Sudo ist bereits aktiviert!)
 python3 src/main.py
 ```
 
-## Schritt-für-Schritt Installation
+**Das ist alles! Das setup.sh Script macht:**
+- ✅ Alle System-Tools installieren (nmap, tcpdump, evtest, etc.)
+- ✅ Python3 und Dependencies einrichten
+- ✅ Auto-Sudo NOPASSWD für alle Tools konfigurieren
+- ✅ Berechtigungen automatisch setzen
+- ✅ Alle Tools testen
+
+## 📖 Schritt-für-Schritt Installation (Manuell)
 
 ### Voraussetzungen
 - Raspberry Pi / Linux System
@@ -25,16 +32,18 @@ sudo apt-get upgrade
 
 ### 2. Abhängige Tools installieren
 
-#### Netzwerk-Tools
+#### Netzwerk- und Security-Tools
 ```bash
-sudo apt-get install -y nmap
-sudo apt-get install -y tcpdump
-sudo apt-get install -y net-tools
-sudo apt-get install -y iproute2
-sudo apt-get install -y iputils-ping
-sudo apt-get install -y wireless-tools
-sudo apt-get install -y wireshark       # Für GUI-basierte Paketanalyse
-sudo apt-get install -y tshark          # Für Terminal-basierte Wireshark-Analyse
+sudo apt-get install -y nmap            # Port Scanner
+sudo apt-get install -y tcpdump         # Paket Capture
+sudo apt-get install -y net-tools       # Netzwerk Utilities
+sudo apt-get install -y iproute2        # Advanced Routing
+sudo apt-get install -y iputils-ping    # Ping Tool
+sudo apt-get install -y wireless-tools  # WLAN Tools
+sudo apt-get install -y wireshark       # Wireshark GUI & tshark
+sudo apt-get install -y tshark          # Terminal Wireshark
+sudo apt-get install -y evtest          # Input Event Monitor (Keystroke Logger)
+sudo apt-get install -y libinput-tools  # Modern Input Handling
 ```
 
 #### Python
@@ -48,14 +57,22 @@ sudo apt-get install -y python3-pip
 pip3 install -r requirements.txt
 ```
 
-### 4. Auto-Sudo Konfiguration (Wichtig!)
+### 4. Auto-Sudo Konfiguration (Automatisch via setup.sh!)
 
-Die App nutzt **automatische Sudo-Erhöhung** für privilegierte Befehle wie `tcpdump` und `nmap`. Dies bedeutet, dass Sie die App NICHT mit `sudo` starten müssen - sie fordert automatisch Berechtigungen an, wenn nötig.
+Das `setup.sh` Script konfiguriert automatisch **NOPASSWD sudoers** für alle Tools!
 
-Damit dies ohne Passwort-Eingabe funktioniert, richten Sie NOPASSWD sudo für die notwendigen Befehle ein:
-
+Die folgenden Tools werden ohne Passwort arbeiten:
 ```bash
-# Als sudo Benutzer:
+/usr/sbin/tcpdump    # Paketerfassung
+/usr/bin/nmap        # Port Scanner
+/usr/bin/wireshark   # Wireshark GUI
+/usr/bin/tshark      # Terminal Wireshark
+/usr/bin/evtest      # Keystroke Logger
+/bin/timeout         # Timeout Utility
+```
+
+**Falls manuell konfigurieren nötig:**
+```bash
 sudo visudo
 
 # Fügen Sie diese Zeilen am Ende der Datei hinzu:
@@ -63,14 +80,13 @@ your_username ALL=(ALL) NOPASSWD: /usr/sbin/tcpdump
 your_username ALL=(ALL) NOPASSWD: /usr/bin/nmap
 your_username ALL=(ALL) NOPASSWD: /usr/bin/wireshark
 your_username ALL=(ALL) NOPASSWD: /usr/bin/tshark
+your_username ALL=(ALL) NOPASSWD: /usr/bin/evtest
+your_username ALL=(ALL) NOPASSWD: /bin/timeout
 ```
 
-Ersetzen Sie `your_username` durch Ihren tatsächlichen Benutzernamen.
+### 5. Verfügbare Tools und Modi
 
-**Alternative:** Wenn Sie sich eine Passwort-Eingabe leisten können, funktioniert die App auch ohne diese Konfiguration - sie zeigt dann die Passwort-Aufforderung an.
-
-### 5. Sniffer Modi
-
+#### Network Sniffer
 Der Network Sniffer bietet drei verschiedene Capture-Modi:
 
 1. **📊 TcpDump** (Immer verfügbar)

@@ -616,3 +616,120 @@ def check_wireshark_available() -> bool:
     return True
 
 
+def monitor_keyboard_events(duration_seconds: int = 10, device_pattern: str = "") -> Tuple[List[str], List[str]]:
+    """
+    Monitor keyboard/input events using libinput or evtest.
+    duration_seconds: how long to monitor (approximately)
+    device_pattern: filter devices (e.g. "keyboard", "")
+    Returns list of events captured
+    """
+    warnings: List[str] = []
+    results: List[str] = []
+    
+    # Try libinput first (newer, preferred method)
+    rc, _, _ = run_cmd(["which", "libinput"], timeout=2)
+    if rc == 0:
+        try:
+            # List input devices
+            cmd = ["libinput", "list-devices"]
+            rc, out, err = run_cmd_with_sudo(cmd, timeout=5)
+            
+            if rc == 0:
+                for line in out.splitlines()[:20]:
+                    if "Keyboard" in line or "keyboard" in line or line.strip():
+                        results.append(line.strip()[:80])
+                
+                if not results:
+                    results.append("(No keyboard devices found)")
+            else:
+                warnings.append("libinput list-devices failed")
+        except Exception as e:
+            warnings.append(f"libinput error: {str(e)[:40]}")
+    else:
+        # Fallback: try evtest
+        rc, _, _ = run_cmd(["which", "evtest"], timeout=2)
+        if rc == 0:
+            results.append("evtest available for event monitoring")
+            results.append("(Interactive mode - press device to monitor)")
+        else:
+            warnings.append("Neither libinput nor evtest found")
+            warnings.append("Install: sudo apt-get install libinput-tools evtest")
+    
+    return results, warnings
+
+
+def get_keyboard_devices() -> Tuple[List[str], List[str]]:
+    """
+    List available keyboard input devices.
+    """
+    warnings: List[str] = []
+    devices: List[str] = []
+    
+    # Try to list input devices
+    import os
+    import glob
+    
+    # Check /dev/input/event* files (requires root)
+    try:
+        event_files = sorted(glob.glob("/dev/input/event*"))
+        for event_file in event_files:
+            # Try to get device name
+            name_cmd = ["cat", f"/sys/class/input/{os.path.basename(event_file)}/device/name"]
+            rc, name, _ = run_cmd(name_cmd, timeout=2)
+            if rc == 0 and name:
+                devices.append(f"{event_file}: {name.strip()}")
+            else:
+                devices.append(event_file)
+    except:
+        pass
+    
+    if not devices:
+        warnings.append("Could not enumerate input devices")
+        warnings.append("Try: sudo evtest")
+    
+    return devices, warnings
+
+
+def capture_keyboard_events(event_device: str = "", duration: int = 5) -> Tuple[List[str], List[str]]:
+    """
+    Capture keyboard events from specified device using evtest.
+    event_device: e.g., "/dev/input/event0"
+    duration: capture duration in seconds
+    """
+    import time
+    
+    warnings: List[str] = []
+    results: List[str] = []
+    
+    # Check if evtest is available
+    rc, _, _ = run_cmd(["which", "evtest"], timeout=2)
+    if rc != 0:
+        return results, ["evtest not installed. Install with: sudo apt-get install evtest"]
+    
+    if not event_device:
+        return results, ["No event device specified"]
+    
+    try:
+        # Run evtest with timeout
+        cmd = ["timeout", str(duration), "evtest", event_device]
+        rc, out, err = run_cmd_with_sudo(cmd, timeout=duration + 5)
+        
+        # Parse evtest output
+        lines = out.splitlines()
+        
+        for line in lines:
+            line = line.strip()
+            # Filter for key events
+            if "EV_KEY" in line or "EV_REL" in line or "KEY_" in line:
+                results.append(line[:80])
+        
+        if not results:
+            results.append("(No events captured)")
+            if err:
+                warnings.append(f"Error: {err[:50]}")
+    except Exception as e:
+        warnings.append(f"Capture error: {str(e)[:50]}")
+    
+    return results, warnings
+
+
