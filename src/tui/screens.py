@@ -1656,33 +1656,57 @@ class USBKeyboardInterceptorScreen(BaseScreen):
         self.mode = 0  # 0=info, 1=detect, 2=monitor, 3=intercept
         self.devices: List[str] = []
         self.selected_device = None
+        self.device_lines: Dict[int, str] = {}  # Map line number to device for clicking
         self._load()
 
     def _load(self) -> None:
         lines: List[str] = []
+        self.device_lines = {}
+        line_num = 0
+        
         lines.append("┌─ USB KEYBOARD INTERCEPTOR")
+        line_num += 1
         lines.append("│")
+        line_num += 1
         lines.append("│ ⚠️  ADVANCED SECURITY TOOL:")
+        line_num += 1
         lines.append("│ USB Keyboard Traffic Interception")
+        line_num += 1
         lines.append("│")
+        line_num += 1
         lines.append("│ ⚠️  LEGAL WARNING:")
+        line_num += 1
         lines.append("│ - Unauthorized interception is ILLEGAL")
+        line_num += 1
         lines.append("│ - Use only on systems you own/control")
+        line_num += 1
         lines.append("│ - Educational/authorized testing ONLY")
+        line_num += 1
         lines.append("│")
+        line_num += 1
         
         if self.mode == 0:
             # Info mode
             lines.append("│ FEATURES:")
+            line_num += 1
             lines.append("│ • Auto-detect USB keyboards")
+            line_num += 1
             lines.append("│ • Live keystroke monitoring")
+            line_num += 1
             lines.append("│ • USB device enumeration")
+            line_num += 1
             lines.append("│ • HID event capture")
+            line_num += 1
             lines.append("│")
+            line_num += 1
             lines.append("│ STEPS:")
+            line_num += 1
             lines.append("│ 1. Click 'Detect' to find USB keyboards")
-            lines.append("│ 2. Click 'Monitor' to watch keystrokes")
+            line_num += 1
+            lines.append("│ 2. Select a keyboard to intercept")
+            line_num += 1
             lines.append("│ 3. View all captured keys live")
+            line_num += 1
         
         elif self.mode == 1:
             # Detect mode
@@ -1691,36 +1715,53 @@ class USBKeyboardInterceptorScreen(BaseScreen):
             if warnings:
                 for w in warnings:
                     lines.append(f"│ ⚠ {w}")
+                    line_num += 1
                 lines.append("│")
+                line_num += 1
             
-            lines.append("│ USB DEVICES:")
+            lines.append("│ USB DEVICES (tap to select):")
+            line_num += 1
             
             if devices:
                 self.devices = devices
-                for dev in devices[:15]:
-                    lines.append(f"│ {dev[:70]}")
+                for i, dev in enumerate(devices[:12]):
+                    lines.append(f"│ [{i+1}] {dev[:60]}")
+                    self.device_lines[line_num] = dev
+                    line_num += 1
             else:
                 lines.append("│ (No USB devices found)")
+                line_num += 1
                 lines.append("│ Connect a USB keyboard")
+                line_num += 1
         
         elif self.mode == 2:
             # Monitor mode
+            if self.selected_device:
+                lines.append(f"│ Monitoring: {self.selected_device[:58]}")
+                line_num += 1
+                lines.append("│")
+                line_num += 1
+            
             results, warnings = monitor_usb_keyboard_events()
             
-            lines.append("│")
             if warnings:
                 for w in warnings:
                     lines.append(f"│ ⚠ {w}")
+                    line_num += 1
                 lines.append("│")
+                line_num += 1
             
-            for line in results:
+            for line in results[:20]:
                 lines.append(f"│ {line[:70]}")
+                line_num += 1
         
         elif self.mode == 3:
             # Intercept mode
             if self.selected_device:
-                lines.append(f"│ Intercepting: {self.selected_device[:60]}")
+                lines.append(f"│ Intercepting: {self.selected_device[:58]}")
+                line_num += 1
                 lines.append("│")
+                line_num += 1
                 
                 # Extract device path
                 device_path = self.selected_device.split(":")[0].strip() if ":" in self.selected_device else "/dev/input/event0"
@@ -1729,14 +1770,21 @@ class USBKeyboardInterceptorScreen(BaseScreen):
                 
                 if warnings:
                     lines.append("│")
+                    line_num += 1
                     for w in warnings:
                         lines.append(f"│ ⚠ {w}")
+                        line_num += 1
                 
                 lines.append("│")
-                for line in results:
+                line_num += 1
+                for line in results[:20]:
                     lines.append(f"│ {line[:70]}")
+                    line_num += 1
             else:
-                lines.append("│ No device selected for interception")
+                lines.append("│ No device selected")
+                line_num += 1
+                lines.append("│ Go back to Detect mode to select one")
+                line_num += 1
         
         lines.append("└─")
         self.lines = lines
@@ -1757,6 +1805,7 @@ class USBKeyboardInterceptorScreen(BaseScreen):
             pass
         
         self.mode_buttons = []
+        self.device_buttons = []
         modes = [
             ("ℹ️ Info", 0),
             ("🔎 Detect", 1),
@@ -1765,6 +1814,7 @@ class USBKeyboardInterceptorScreen(BaseScreen):
         ]
         
         action_x = 2
+        mode_y = y_pos
         for label, mode_idx in modes:
             is_selected = (mode_idx == self.mode)
             button_width = 13
@@ -1772,15 +1822,15 @@ class USBKeyboardInterceptorScreen(BaseScreen):
                 if is_selected:
                     stdscr.attron(curses.A_REVERSE)
                 btn_text = label.center(button_width)[:button_width]
-                stdscr.addstr(y_pos, action_x, btn_text)
+                stdscr.addstr(mode_y, action_x, btn_text)
                 if is_selected:
                     stdscr.attroff(curses.A_REVERSE)
             except curses.error:
                 pass
             
             self.mode_buttons.append(ClickRegion(
-                y_start=y_pos,
-                y_end=y_pos,
+                y_start=mode_y,
+                y_end=mode_y,
                 x_start=action_x,
                 x_end=action_x + button_width - 1,
                 action_id=mode_idx
@@ -1788,18 +1838,46 @@ class USBKeyboardInterceptorScreen(BaseScreen):
             action_x += button_width + 1
         
         try:
-            stdscr.addstr(y_pos + 1, 2, "└─")
+            stdscr.addstr(mode_y + 1, 2, "└─")
         except curses.error:
             pass
         
         y_pos += 3
-        draw_text_block(stdscr, y_pos, 2, w - 4, self.lines)
+        
+        # Draw content with device selection for Detect mode
+        content_start_y = y_pos
+        for i, line in enumerate(self.lines):
+            line_y = content_start_y + i
+            if line_y >= h - 3:
+                break
+            
+            # Check if this line has a device we can click
+            if line_y in self.device_lines and self.mode == 1:
+                device = self.device_lines[line_y]
+                try:
+                    stdscr.addstr(line_y, 2, line)
+                    # Create clickable region for device
+                    self.device_buttons.append(ClickRegion(
+                        y_start=line_y,
+                        y_end=line_y,
+                        x_start=2,
+                        x_end=min(w - 4, 2 + len(line)),
+                        action_id=len(self.device_buttons)
+                    ))
+                except curses.error:
+                    pass
+            else:
+                try:
+                    stdscr.addstr(line_y, 2, line)
+                except curses.error:
+                    pass
         
         self.button_regions = draw_touch_button_bar(stdscr, [
             ("← Back", 0),
             ("🔄 Refresh", 1),
             ("Home", 2),
         ])
+
 
     def handle_key(self, key: int) -> ScreenResult:
         if key == curses.KEY_MOUSE:
@@ -1812,6 +1890,22 @@ class USBKeyboardInterceptorScreen(BaseScreen):
                     self.mode = mode_clicked
                     self._load()
                     return ScreenResult()
+                
+                # Check device buttons (in Detect mode)
+                if self.mode == 1:
+                    device_clicked = check_mouse_click(mouse_event, self.device_buttons)
+                    if device_clicked is not None and device_clicked < len(self.device_buttons):
+                        # Find device at this button index
+                        btn_regions = [r for r in self.device_buttons]
+                        if device_clicked < len(btn_regions):
+                            # Get the line_y from button region
+                            clicked_region = btn_regions[device_clicked]
+                            if clicked_region.y_start in self.device_lines:
+                                self.selected_device = self.device_lines[clicked_region.y_start]
+                                # Switch to Monitor mode
+                                self.mode = 2
+                                self._load()
+                                return ScreenResult()
                 
                 # Check bottom buttons
                 button_clicked = check_mouse_click(mouse_event, self.button_regions)
