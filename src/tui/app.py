@@ -76,18 +76,22 @@ class TuiApp:
         
         # Enable mouse events for touchscreen and mouse support
         curses.mousemask(curses.BUTTON1_CLICKED | curses.BUTTON3_CLICKED)
-        
-        # Set non-blocking mode for live updates
-        stdscr.nodelay(True)
-        stdscr.timeout(500)  # 500ms timeout for responsive live updates
 
         while True:
             self.current.render(stdscr)
             stdscr.refresh()
 
+            # Use short timeout (500ms) only for SnifferScreen for live updates
+            if self.current_name == "sniffer":
+                stdscr.nodelay(True)
+                stdscr.timeout(500)  # 500ms timeout for live packet updates
+            else:
+                stdscr.nodelay(False)
+                stdscr.timeout(-1)   # Blocking mode for normal screens
+
             key = stdscr.getch()
-            if key != -1:  # -1 means timeout (no key pressed)
-                result = self.current.handle_key(key)
+            if key != -1 or self.current_name == "sniffer":  # Always render sniffer even on timeout
+                result = self.current.handle_key(key) if key != -1 else self.current.handle_key(-1)
 
                 if result.next_screen == "quit":
                     break
