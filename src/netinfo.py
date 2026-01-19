@@ -459,3 +459,53 @@ def get_local_network() -> Tuple[str, List[str]]:
     # Fallback
     return "192.168.1.0/24", ["Could not determine local network"]
 
+
+def sniff_packets(interface: str = "eth0", packet_count: int = 20, filter_str: str = "") -> Tuple[List[str], List[str]]:
+    """
+    Sniff network packets using tcpdump.
+    interface: network interface to sniff on (e.g. "eth0", "wlan0")
+    packet_count: number of packets to capture
+    filter_str: tcpdump filter (e.g. "tcp port 80" or "icmp")
+    """
+    warnings: List[str] = []
+    results: List[str] = []
+    
+    # Check if tcpdump is available
+    rc, _, err = run_cmd(["which", "tcpdump"], timeout=2)
+    if rc != 0:
+        return results, ["tcpdump not installed. Install with: sudo apt install tcpdump"]
+    
+    # Build tcpdump command
+    cmd = ["tcpdump", "-i", interface, "-c", str(packet_count)]
+    
+    # Add filter if specified
+    if filter_str:
+        cmd.append(filter_str)
+    
+    # Run tcpdump (may require sudo)
+    rc, out, err = run_cmd(cmd, timeout=10)
+    
+    if rc != 0:
+        if "permission" in err.lower() or "denied" in err.lower():
+            warnings.append("tcpdump requires sudo: sudo tcpdump -i <interface>")
+        else:
+            warnings.append(f"tcpdump failed: {err[:50]}")
+        return results, warnings
+    
+    # Parse tcpdump output
+    lines = out.splitlines()
+    
+    # Skip header lines and extract packet info
+    for line in lines:
+        line = line.strip()
+        # Skip empty lines and summary lines
+        if line and not line.startswith("tcpdump:") and "packets captured" not in line:
+            # Truncate long lines for display
+            results.append(line[:80])
+    
+    if not results:
+        results.append("(No packets captured)")
+    
+    return results, warnings
+
+

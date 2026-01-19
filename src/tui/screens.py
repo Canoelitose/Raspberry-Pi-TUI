@@ -9,7 +9,7 @@ from netinfo import (
     get_interfaces, get_dns, get_default_route, ping, wifi_status, get_interface_stats,
     get_bluetooth_devices, get_bluetooth_status, get_bluetooth_powered,
     get_system_info, get_disk_usage, get_memory_info, check_open_ports,
-    scan_ports_with_nmap, scan_network_with_nmap, get_local_network
+    scan_ports_with_nmap, scan_network_with_nmap, get_local_network, sniff_packets
 )
 
 
@@ -1153,26 +1153,93 @@ class SnifferScreen(BaseScreen):
     def __init__(self):
         self.lines: List[str] = []
         self.button_regions: List[ClickRegion] = []
+        self.interface_buttons: List[ClickRegion] = []
+        self.packet_count = 20
+        self.selected_interface = None
+        self.interfaces: List[str] = []
+        self._load_interfaces()
+        self._load()
+
+    def _load_interfaces(self) -> None:
+        """Load available network interfaces"""
+        ifaces, _ = get_interfaces()
+        self.interfaces = [iface.name for iface in ifaces]
+        if not self.interfaces:
+            self.interfaces = ["eth0"]
+        if not self.selected_interface:
+            self.selected_interface = self.interfaces[0]
+
+    def _load(self) -> None:
+        lines: List[str] = []
+        
+        # Show interface and settings
+        lines.append(f"┌─ SNIFFER | {self.selected_interface} | {self.packet_count} packets")
+        lines.append("│")
+        
+        # Run tcpdump
+        packets, warnings = sniff_packets(self.selected_interface, self.packet_count)
+        
+        if warnings:
+            for w in warnings:
+                lines.append(f"│ ⚠ {w}")
+            lines.append("│")
+        
+        if packets:
+            for packet in packets[:25]:
+                lines.append(f"│ {packet}")
+        else:
+            lines.append("│ (No packets captured)")
+        
+        lines.append("└─")
+        self.lines = lines
 
     def render(self, stdscr) -> None:
         stdscr.clear()
         draw_header(stdscr, self.title)
         h, w = stdscr.getmaxyx()
+        safe_w = get_safe_width(stdscr)
         
-        lines = [
-            "🚫 COMING SOON",
-            "",
-            "Network packet sniffing",
-            "will be available in",
-            "future versions.",
-            "",
-            "⚠️  Security notice:",
-            "This tool follows ethical",
-            "guidelines and Linux",
-            "policies."
-        ]
+        y_pos = 2
         
-        draw_text_block(stdscr, 2, 2, w - 4, lines)
+        # Draw interface selector
+        try:
+            stdscr.addstr(y_pos, 2, "┌─ SELECT INTERFACE", curses.A_BOLD)
+            y_pos += 1
+        except curses.error:
+            pass
+        
+        self.interface_buttons = []
+        button_width = max(8, (safe_w - 6) // len(self.interfaces))
+        
+        for idx, iface in enumerate(self.interfaces):
+            x_pos = 2 + (idx * (button_width + 1))
+            marker = "✓" if iface == self.selected_interface else " "
+            
+            try:
+                if iface == self.selected_interface:
+                    stdscr.attron(curses.A_REVERSE)
+                btn_text = f" {marker}{iface} ".center(button_width)[:button_width]
+                stdscr.addstr(y_pos, x_pos, btn_text)
+                if iface == self.selected_interface:
+                    stdscr.attroff(curses.A_REVERSE)
+            except curses.error:
+                pass
+            
+            self.interface_buttons.append(ClickRegion(
+                y_start=y_pos,
+                y_end=y_pos,
+                x_start=x_pos,
+                x_end=x_pos + button_width - 1,
+                action_id=idx
+            ))
+        
+        try:
+            stdscr.addstr(y_pos + 1, 2, "└─")
+        except curses.error:
+            pass
+        
+        y_pos += 3
+        draw_text_block(stdscr, y_pos, 2, w - 4, self.lines)
         
         self.button_regions = draw_touch_button_bar(stdscr, [
             ("← Back", 0),
@@ -1184,9 +1251,20 @@ class SnifferScreen(BaseScreen):
         if key == curses.KEY_MOUSE:
             try:
                 mouse_event = curses.getmouse()
+                
+                # Check interface buttons
+                iface_clicked = check_mouse_click(mouse_event, self.interface_buttons)
+                if iface_clicked is not None:
+                    self.selected_interface = self.interfaces[iface_clicked]
+                    self._load()
+                    return ScreenResult()
+                
+                # Check bottom buttons
                 button_clicked = check_mouse_click(mouse_event, self.button_regions)
                 if button_clicked == 0:
                     return ScreenResult(next_screen="hacker")
+                elif button_clicked == 1:
+                    self._load()
                 elif button_clicked == 2:
                     return ScreenResult(next_screen="main")
             except:
