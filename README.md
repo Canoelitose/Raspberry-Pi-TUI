@@ -1,83 +1,99 @@
-# Raspberry Pi Network Monitor TUI
+# 🔧 Multi-Hacker Tool - Network & System Monitor TUI
 
-A beautiful, interactive Terminal User Interface (TUI) for monitoring and diagnosing network configuration and connectivity on Linux/Raspberry Pi systems.
+A comprehensive Terminal User Interface (TUI) for network diagnostics, system monitoring, and hacker tools on Linux/Raspberry Pi systems. Optimized for portrait (vertical) screens!
 
-## Features 🎯
+## ✨ Features 🎯
 
-- **Network Interface Monitor**: View all network interfaces with detailed IPv4/IPv6 addresses
-- **Network Diagnostics**: Check default gateway, DNS servers, and connectivity (ping test)
+### 🌐 **Network Hub**
+- **Network Interfaces**: View all network interfaces with IPv4/IPv6 addresses
+- **Network Diagnostics**: Check interface health, gateway, and connectivity
 - **WLAN Status**: Display wireless device information (requires `iw` package)
-- **Settings Panel**: Placeholder for future configuration options
-- **Mouse Support**: Click on menu items and buttons for navigation
-- **Touchscreen Optimized**: Special touch mode with larger tap targets and button bar (use `--touch` flag)
-- **Keyboard Navigation**: Full keyboard support with intuitive controls
-- **Beautiful UI**: Enhanced with ASCII art, emojis, and improved formatting
+- **DNS & Routes**: View DNS servers and default gateway
 
-## Quick Start
+### 📱 **Bluetooth Hub**
+- **Bluetooth Devices**: List paired BT devices
+- **BT Status**: Show Bluetooth controller status
 
-### Too Run on mine
-```bash
-./TUI/Raspberry-Pi-TUI/scripts/run.sh
-```
+### 💻 **System Info**
+- **System Information**: Hostname, Uptime, Kernel version, CPU cores
+- **Memory Stats**: Total, Available, Free memory
+- **Disk Usage**: Storage capacity, used space, percentage
+
+### 🔧 **Hacker Tools** (Expandable)
+- **Port Scanner**: View listening ports on system
+- **Network Sniffer**: Coming soon
+- **Packet Tools**: Coming soon
+
+### ✅ **Other Features**
+- **Mouse & Touchscreen Support**: Full click interaction
+- **Portrait Mode Optimized**: Works perfectly on vertical screens (40-45 char width)
+- **Touch-Friendly**: Large buttons and tap targets
+- **Beautiful UI**: Emojis, ASCII art, clean formatting
+
+## 🚀 Installation & Usage
 
 ### Local Development
 ```bash
 python3 src/main.py
 ```
 
-### Touchscreen Mode (larger buttons, touch-friendly)
-```bash
-python3 src/main.py --touch
-```
-
-### Raspberry Pi (via script)
+### Raspberry Pi
 ```bash
 ./scripts/run.sh
 ```
 
-### Raspberry Pi with Touchscreen
-```bash
-./scripts/run.sh --touch
-```
+### Touchscreen Mode (Automatic)
+The tool automatically enables touchscreen-friendly interface with larger buttons.
 
-## Requirements
+## 📋 Requirements
 
 - Python 3.6+
 - Linux/Raspberry Pi with `ip` command
-- (Optional) `iw` package for WLAN features: `sudo apt install iw`
+- (Optional) `iw` package for WLAN: `sudo apt install iw`
+- (Optional) `bluetoothctl` for Bluetooth: usually included
 - Curses library (built-in on Linux)
 
-## Controls 🎮
+## 🎮 Controls
 
-| Key | Action |
-|-----|--------|
-| ↑/↓ or `j`/`k` | Navigate menu |
-| Enter | Select option |
-| Esc / Backspace | Go back |
-| `r` | Refresh data |
-| `q` | Quit application |
-| **Mouse Click** | Click menu items or refresh buttons |
+- **🖱️ Mouse/Touch**: Click on any menu item or button
+- **Esc**: Go back to previous screen
+- **q**: Quit application
 
-## Project Structure
+## 📁 Project Structure
 
 ```
 ├── src/
 │   ├── main.py           # Entry point
 │   ├── config.py         # Configuration & constants
-│   ├── utils.py          # Utility functions
-│   ├── netinfo.py        # Network data collection
+│   ├── utils.py          # Utility functions (subprocess)
+│   ├── netinfo.py        # Network & system data functions
 │   └── tui/
 │       ├── app.py        # TUI application core
-│       ├── screens.py    # Screen definitions
-│       └── widgets.py    # UI widgets & components
+│       ├── screens.py    # Screen classes (15+)
+│       └── widgets.py    # UI components & rendering
 ├── scripts/
-│   └── run.sh            # Raspberry Pi launcher
+│   └── run.sh            # Raspberry Pi launcher script
 └── README.md             # This file
 ```
 
-## Version
+## 🎯 Roadmap
 
-v0.2.0 - Now with English UI and improved design! 🎨
+- ✅ v0.3.0: Bluetooth, System Info, Hacker Tools, Portrait Mode
+- 🚧 v0.4.0: Advanced port scanning, firewall rules
+- 📋 v0.5.0+: Network sniffing (tcpdump integration), packet analysis
+
+## 📝 License
+
+Open source - Feel free to modify and extend!
+
+## 🙏 Credits
+
+Built with ❤️ for Raspberry Pi and Linux enthusiasts.
+
+---
+
+**Current Version**: v0.3.0  
+**Last Updated**: 2026-01-19
 
 ## Author
 

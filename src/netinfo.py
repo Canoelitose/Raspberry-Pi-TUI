@@ -180,3 +180,153 @@ def get_interface_stats(interface: str) -> Tuple[Dict, List[str]]:
         stats["ping_output"] = out
     
     return stats, warnings
+
+
+# ============== BLUETOOTH FUNCTIONS ==============
+
+def get_bluetooth_devices() -> Tuple[List[str], List[str]]:
+    """Get list of paired Bluetooth devices"""
+    warnings: List[str] = []
+    devices: List[str] = []
+    
+    rc, out, err = run_cmd(["bluetoothctl", "paired-devices"], timeout=3)
+    if rc != 0:
+        warnings.append("Bluetooth not available or bluetoothctl not found")
+        return devices, warnings
+    
+    for line in out.splitlines():
+        line = line.strip()
+        if line:
+            devices.append(line)
+    
+    return devices, warnings
+
+
+def get_bluetooth_status() -> Tuple[str, List[str]]:
+    """Get Bluetooth controller status"""
+    warnings: List[str] = []
+    
+    rc, out, err = run_cmd(["bluetoothctl", "show"], timeout=3)
+    if rc != 0:
+        return "Bluetooth not available", ["bluetoothctl not found"]
+    
+    return out, warnings
+
+
+def get_bluetooth_powered() -> Tuple[bool, List[str]]:
+    """Check if Bluetooth is powered on"""
+    warnings: List[str] = []
+    
+    rc, out, err = run_cmd(["bluetoothctl", "show"], timeout=3)
+    if rc != 0:
+        return False, ["bluetoothctl not found"]
+    
+    for line in out.splitlines():
+        if "Powered: yes" in line:
+            return True, []
+        elif "Powered: no" in line:
+            return False, []
+    
+    return False, ["Could not determine power status"]
+
+
+# ============== SYSTEM INFO FUNCTIONS ==============
+
+def get_system_info() -> Tuple[Dict[str, str], List[str]]:
+    """Get basic system information"""
+    warnings: List[str] = []
+    info: Dict[str, str] = {}
+    
+    # Hostname
+    rc, out, _ = run_cmd(["hostname"], timeout=2)
+    info["hostname"] = out if rc == 0 else "N/A"
+    
+    # Uptime
+    rc, out, _ = run_cmd(["uptime", "-p"], timeout=2)
+    info["uptime"] = out if rc == 0 else "N/A"
+    
+    # Kernel
+    rc, out, _ = run_cmd(["uname", "-r"], timeout=2)
+    info["kernel"] = out if rc == 0 else "N/A"
+    
+    # CPU
+    rc, out, _ = run_cmd(["nproc"], timeout=2)
+    info["cpu_cores"] = out if rc == 0 else "N/A"
+    
+    return info, warnings
+
+
+def get_disk_usage() -> Tuple[Dict[str, str], List[str]]:
+    """Get disk usage information"""
+    warnings: List[str] = []
+    usage: Dict[str, str] = {}
+    
+    rc, out, err = run_cmd(["df", "-h"], timeout=3)
+    if rc != 0:
+        warnings.append("Could not get disk usage")
+        return usage, warnings
+    
+    lines = out.splitlines()
+    if len(lines) > 1:
+        root_line = lines[1]
+        parts = root_line.split()
+        if len(parts) >= 5:
+            usage["filesystem"] = parts[0]
+            usage["size"] = parts[1]
+            usage["used"] = parts[2]
+            usage["available"] = parts[3]
+            usage["percent"] = parts[4]
+    
+    return usage, warnings
+
+
+def get_memory_info() -> Tuple[Dict[str, str], List[str]]:
+    """Get memory information from /proc/meminfo"""
+    warnings: List[str] = []
+    mem_info: Dict[str, str] = {}
+    
+    try:
+        with open("/proc/meminfo", "r", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("MemTotal:"):
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        total_kb = int(parts[1])
+                        mem_info["total"] = f"{total_kb // 1024} MB"
+                elif line.startswith("MemAvailable:"):
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        avail_kb = int(parts[1])
+                        mem_info["available"] = f"{avail_kb // 1024} MB"
+                elif line.startswith("MemFree:"):
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        free_kb = int(parts[1])
+                        mem_info["free"] = f"{free_kb // 1024} MB"
+    except Exception as e:
+        warnings.append(f"Could not read memory info: {e}")
+    
+    return mem_info, warnings
+
+
+# ============== PORT SCANNING FUNCTIONS ==============
+
+def check_open_ports(host: str = "localhost") -> Tuple[List[str], List[str]]:
+    """Check common open ports using netstat"""
+    warnings: List[str] = []
+    open_ports: List[str] = []
+    
+    rc, out, err = run_cmd(["netstat", "-tuln"], timeout=3)
+    if rc != 0:
+        warnings.append("netstat not available or failed")
+        # Try ss as fallback
+        rc, out, err = run_cmd(["ss", "-tuln"], timeout=3)
+        if rc != 0:
+            warnings.append("ss not available either")
+            return open_ports, warnings
+    
+    for line in out.splitlines():
+        if "LISTEN" in line:
+            open_ports.append(line.strip()[:60])  # Limit line length
+    
+    return open_ports, warnings

@@ -5,10 +5,20 @@ from typing import Dict, Type, Optional
 from tui.screens import (
     BaseScreen,
     MainMenuScreen,
+    NetworkHubScreen,
     InterfacesScreen,
     NetDiagScreen,
     NetDiagDetailScreen,
     WifiScreen,
+    DnsRoutesScreen,
+    BluetoothHubScreen,
+    BluetoothDevicesScreen,
+    BluetoothStatusScreen,
+    SystemInfoScreen,
+    HackerToolsScreen,
+    PortScannerScreen,
+    SnifferScreen,
+    PacketsScreen,
     SettingsScreen,
 )
 
@@ -17,10 +27,20 @@ class TuiApp:
     def __init__(self):
         self.screen_map: Dict[str, Type[BaseScreen]] = {
             "main": MainMenuScreen,
+            "net_hub": NetworkHubScreen,
             "ifaces": InterfacesScreen,
             "netdiag": NetDiagScreen,
             "netdiag_detail": NetDiagDetailScreen,
             "wifi": WifiScreen,
+            "dns_routes": DnsRoutesScreen,
+            "bt_hub": BluetoothHubScreen,
+            "bt_devices": BluetoothDevicesScreen,
+            "bt_status": BluetoothStatusScreen,
+            "sys_info": SystemInfoScreen,
+            "hacker": HackerToolsScreen,
+            "port_scan": PortScannerScreen,
+            "sniffer": SnifferScreen,
+            "packets": PacketsScreen,
             "settings": SettingsScreen,
         }
         self.current_name = "main"
