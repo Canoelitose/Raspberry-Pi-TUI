@@ -175,7 +175,7 @@ class InterfacesScreen(BaseScreen):
         
         self.button_regions = draw_touch_button_bar(stdscr, [
             ("← Back", 0),
-            ("🔄 Refresh", 1),
+            ("🔄 Sync", 1),
             ("Home", 2),
         ])
 
@@ -298,7 +298,8 @@ class NetDiagDetailScreen(BaseScreen):
         
         self.button_regions = draw_touch_button_bar(stdscr, [
             ("← Back", 0),
-            ("🔄 Refresh", 1),
+            ("🔄 Sync", 1),
+            ("Home", 2),
         ])
 
     def handle_key(self, key: int) -> ScreenResult:
@@ -310,6 +311,8 @@ class NetDiagDetailScreen(BaseScreen):
                     return ScreenResult(next_screen="netdiag")
                 elif button_clicked == 1:
                     self._load()
+                elif button_clicked == 2:
+                    return ScreenResult(next_screen="main")
             except:
                 pass
         
@@ -351,7 +354,8 @@ class WifiScreen(BaseScreen):
         
         self.button_regions = draw_touch_button_bar(stdscr, [
             ("← Back", 0),
-            ("🔄 Refresh", 1),
+            ("🔄 Sync", 1),
+            ("Home", 2),
         ])
 
     def handle_key(self, key: int) -> ScreenResult:
@@ -363,6 +367,8 @@ class WifiScreen(BaseScreen):
                     return ScreenResult(next_screen="net_hub")
                 elif button_clicked == 1:
                     self._load()
+                elif button_clicked == 2:
+                    return ScreenResult(next_screen="main")
             except:
                 pass
         
@@ -411,7 +417,8 @@ class DnsRoutesScreen(BaseScreen):
         
         self.button_regions = draw_touch_button_bar(stdscr, [
             ("← Back", 0),
-            ("🔄 Refresh", 1),
+            ("🔄 Sync", 1),
+            ("Home", 2),
         ])
 
     def handle_key(self, key: int) -> ScreenResult:
@@ -423,6 +430,8 @@ class DnsRoutesScreen(BaseScreen):
                     return ScreenResult(next_screen="net_hub")
                 elif button_clicked == 1:
                     self._load()
+                elif button_clicked == 2:
+                    return ScreenResult(next_screen="main")
             except:
                 pass
         
@@ -507,7 +516,8 @@ class BluetoothDevicesScreen(BaseScreen):
         
         self.button_regions = draw_touch_button_bar(stdscr, [
             ("← Back", 0),
-            ("🔄 Refresh", 1),
+            ("🔄 Sync", 1),
+            ("Home", 2),
         ])
 
     def handle_key(self, key: int) -> ScreenResult:
@@ -519,6 +529,8 @@ class BluetoothDevicesScreen(BaseScreen):
                     return ScreenResult(next_screen="bt_hub")
                 elif button_clicked == 1:
                     self._load()
+                elif button_clicked == 2:
+                    return ScreenResult(next_screen="main")
             except:
                 pass
         
@@ -557,7 +569,8 @@ class BluetoothStatusScreen(BaseScreen):
         
         self.button_regions = draw_touch_button_bar(stdscr, [
             ("← Back", 0),
-            ("🔄 Refresh", 1),
+            ("🔄 Sync", 1),
+            ("Home", 2),
         ])
 
     def handle_key(self, key: int) -> ScreenResult:
@@ -569,6 +582,8 @@ class BluetoothStatusScreen(BaseScreen):
                     return ScreenResult(next_screen="bt_hub")
                 elif button_clicked == 1:
                     self._load()
+                elif button_clicked == 2:
+                    return ScreenResult(next_screen="main")
             except:
                 pass
         
@@ -630,7 +645,8 @@ class SystemInfoScreen(BaseScreen):
         
         self.button_regions = draw_touch_button_bar(stdscr, [
             ("← Back", 0),
-            ("🔄 Refresh", 1),
+            ("🔄 Sync", 1),
+            ("Home", 2),
         ])
 
     def handle_key(self, key: int) -> ScreenResult:
@@ -642,6 +658,8 @@ class SystemInfoScreen(BaseScreen):
                     return ScreenResult(next_screen="main")
                 elif button_clicked == 1:
                     self._load()
+                elif button_clicked == 2:
+                    return ScreenResult(next_screen="main")
             except:
                 pass
         
@@ -702,9 +720,23 @@ class PortScannerScreen(BaseScreen):
     def __init__(self):
         self.lines: List[str] = []
         self.button_regions: List[ClickRegion] = []
+        self.scan_mode_buttons: List[ClickRegion] = []
+        self.interface_buttons: List[ClickRegion] = []
         self.scan_mode = "local"  # local, nmap, network
         self.custom_ports = "1-100"  # Default port range
+        self.selected_interface = None
+        self.interfaces: List[str] = []
+        self._load_interfaces()
         self._load()
+
+    def _load_interfaces(self) -> None:
+        """Load available network interfaces"""
+        ifaces, _ = get_interfaces()
+        self.interfaces = [iface.name for iface in ifaces]
+        if not self.interfaces:
+            self.interfaces = ["all"]
+        if not self.selected_interface:
+            self.selected_interface = self.interfaces[0]
 
     def _load(self) -> None:
         lines: List[str] = []
@@ -775,34 +807,129 @@ class PortScannerScreen(BaseScreen):
         stdscr.clear()
         draw_header(stdscr, self.title)
         h, w = stdscr.getmaxyx()
-        draw_text_block(stdscr, 2, 2, w - 4, self.lines)
+        safe_w = get_safe_width(stdscr)
+        
+        y_pos = 2
+        
+        # Draw interface selector
+        try:
+            stdscr.addstr(y_pos, 2, "┌─ SELECT INTERFACE", curses.A_BOLD)
+            y_pos += 1
+        except curses.error:
+            pass
+        
+        self.interface_buttons = []
+        button_width = max(8, (safe_w - 6) // len(self.interfaces))
+        
+        for idx, iface in enumerate(self.interfaces):
+            x_pos = 2 + (idx * (button_width + 1))
+            marker = "✓" if iface == self.selected_interface else " "
+            
+            try:
+                if iface == self.selected_interface:
+                    stdscr.attron(curses.A_REVERSE)
+                btn_text = f" {marker}{iface} ".center(button_width)[:button_width]
+                stdscr.addstr(y_pos, x_pos, btn_text)
+                if iface == self.selected_interface:
+                    stdscr.attroff(curses.A_REVERSE)
+            except curses.error:
+                pass
+            
+            self.interface_buttons.append(ClickRegion(
+                y_start=y_pos,
+                y_end=y_pos,
+                x_start=x_pos,
+                x_end=x_pos + button_width - 1,
+                action_id=idx
+            ))
+        
+        try:
+            stdscr.addstr(y_pos + 1, 2, "└─")
+        except curses.error:
+            pass
+        
+        y_pos += 3
+        
+        # Draw scan mode selector
+        try:
+            stdscr.addstr(y_pos, 2, "┌─ SELECT SCAN MODE", curses.A_BOLD)
+            y_pos += 1
+        except curses.error:
+            pass
+        
+        modes = [("Local", "local"), ("nmap", "nmap"), ("Network", "network"), ("Custom", None)]
+        self.scan_mode_buttons = []
+        mode_width = max(8, (safe_w - 6) // len(modes))
+        
+        for idx, (label, mode_val) in enumerate(modes):
+            x_pos = 2 + (idx * (mode_width + 1))
+            is_selected = (mode_val == self.scan_mode) if mode_val else False
+            marker = "✓" if is_selected else " "
+            
+            try:
+                if is_selected:
+                    stdscr.attron(curses.A_REVERSE)
+                btn_text = f" {marker}{label} ".center(mode_width)[:mode_width]
+                stdscr.addstr(y_pos, x_pos, btn_text)
+                if is_selected:
+                    stdscr.attroff(curses.A_REVERSE)
+            except curses.error:
+                pass
+            
+            self.scan_mode_buttons.append(ClickRegion(
+                y_start=y_pos,
+                y_end=y_pos,
+                x_start=x_pos,
+                x_end=x_pos + mode_width - 1,
+                action_id=idx
+            ))
+        
+        try:
+            stdscr.addstr(y_pos + 1, 2, "└─")
+        except curses.error:
+            pass
+        
+        y_pos += 2
+        draw_text_block(stdscr, y_pos, 2, w - 4, self.lines)
         
         self.button_regions = draw_touch_button_bar(stdscr, [
-            ("Local", 0),
-            ("nmap", 1),
-            ("Network", 2),
-            ("Custom", 3),
-            ("← Back", 4),
+            ("← Back", 0),
+            ("🔄 Sync", 1),
+            ("Home", 2),
         ])
 
     def handle_key(self, key: int) -> ScreenResult:
         if key == curses.KEY_MOUSE:
             try:
                 mouse_event = curses.getmouse()
+                
+                # Check interface buttons
+                iface_clicked = check_mouse_click(mouse_event, self.interface_buttons)
+                if iface_clicked is not None:
+                    self.selected_interface = self.interfaces[iface_clicked]
+                    self._load()
+                    return ScreenResult()
+                
+                # Check scan mode buttons
+                mode_clicked = check_mouse_click(mouse_event, self.scan_mode_buttons)
+                if mode_clicked is not None:
+                    if mode_clicked == 3:  # Custom
+                        return ScreenResult(next_screen="custom_port_input")
+                    else:
+                        modes = ["local", "nmap", "network"]
+                        self.scan_mode = modes[mode_clicked]
+                        self._load()
+                    return ScreenResult()
+                
+                # Check bottom buttons
                 button_clicked = check_mouse_click(mouse_event, self.button_regions)
                 if button_clicked == 0:
-                    self.scan_mode = "local"
-                    self._load()
+                    return ScreenResult(next_screen="hacker")
                 elif button_clicked == 1:
-                    self.scan_mode = "nmap"
+                    self._load_interfaces()
                     self._load()
                 elif button_clicked == 2:
-                    self.scan_mode = "network"
-                    self._load()
-                elif button_clicked == 3:
-                    return ScreenResult(next_screen="custom_port_input")
-                elif button_clicked == 4:
-                    return ScreenResult(next_screen="hacker")
+                    return ScreenResult(next_screen="main")
             except:
                 pass
         
@@ -924,8 +1051,9 @@ class CustomPortInputScreen(BaseScreen):
         
         # Draw action buttons
         self.button_regions = draw_touch_button_bar(stdscr, [
-            ("✓ Scan", 0),
-            ("← Back", 1),
+            ("← Back", 0),
+            ("🔄 Sync", 1),
+            ("Home", 2),
         ])
 
     def handle_key(self, key: int) -> ScreenResult:
@@ -988,6 +1116,8 @@ class SnifferScreen(BaseScreen):
         
         self.button_regions = draw_touch_button_bar(stdscr, [
             ("← Back", 0),
+            ("🔄 Sync", 1),
+            ("Home", 2),
         ])
 
     def handle_key(self, key: int) -> ScreenResult:
@@ -997,6 +1127,8 @@ class SnifferScreen(BaseScreen):
                 button_clicked = check_mouse_click(mouse_event, self.button_regions)
                 if button_clicked == 0:
                     return ScreenResult(next_screen="hacker")
+                elif button_clicked == 2:
+                    return ScreenResult(next_screen="main")
             except:
                 pass
         
@@ -1028,6 +1160,8 @@ class PacketsScreen(BaseScreen):
         
         self.button_regions = draw_touch_button_bar(stdscr, [
             ("← Back", 0),
+            ("🔄 Sync", 1),
+            ("Home", 2),
         ])
 
     def handle_key(self, key: int) -> ScreenResult:
@@ -1037,6 +1171,8 @@ class PacketsScreen(BaseScreen):
                 button_clicked = check_mouse_click(mouse_event, self.button_regions)
                 if button_clicked == 0:
                     return ScreenResult(next_screen="hacker")
+                elif button_clicked == 2:
+                    return ScreenResult(next_screen="main")
             except:
                 pass
         
@@ -1073,6 +1209,8 @@ class SettingsScreen(BaseScreen):
         
         self.button_regions = draw_touch_button_bar(stdscr, [
             ("← Back", 0),
+            ("🔄 Sync", 1),
+            ("Home", 2),
         ])
 
     def handle_key(self, key: int) -> ScreenResult:
@@ -1081,6 +1219,8 @@ class SettingsScreen(BaseScreen):
                 mouse_event = curses.getmouse()
                 button_clicked = check_mouse_click(mouse_event, self.button_regions)
                 if button_clicked == 0:
+                    return ScreenResult(next_screen="main")
+                elif button_clicked == 2:
                     return ScreenResult(next_screen="main")
             except:
                 pass
