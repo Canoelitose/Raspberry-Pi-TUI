@@ -6,8 +6,8 @@
 # 1. Setup-Skript ausführen (alle Abhängigkeiten installieren)
 sudo bash setup.sh
 
-# 2. App starten
-bash start.sh
+# 2. App starten (ohne sudo erforderlich - Auto-Sudo ist aktiviert!)
+python3 src/main.py
 ```
 
 ## Schritt-für-Schritt Installation
@@ -15,7 +15,7 @@ bash start.sh
 ### Voraussetzungen
 - Raspberry Pi / Linux System
 - Internet-Verbindung
-- Root-Zugriff (sudo)
+- Root-Zugriff (sudo) für Installation
 
 ### 1. System-Updates
 ```bash
@@ -46,8 +46,26 @@ sudo apt-get install -y python3-pip
 pip3 install -r requirements.txt
 ```
 
-### 4. Berechtigungen setzen (optional aber empfohlen)
+### 4. Auto-Sudo Konfiguration (Wichtig!)
+
+Die App nutzt **automatische Sudo-Erhöhung** für privilegierte Befehle wie `tcpdump` und `nmap`. Dies bedeutet, dass Sie die App NICHT mit `sudo` starten müssen - sie fordert automatisch Berechtigungen an, wenn nötig.
+
+Damit dies ohne Passwort-Eingabe funktioniert, richten Sie NOPASSWD sudo für die notwendigen Befehle ein:
+
 ```bash
+# Als sudo Benutzer:
+sudo visudo
+
+# Fügen Sie diese Zeilen am Ende der Datei hinzu:
+your_username ALL=(ALL) NOPASSWD: /usr/sbin/tcpdump
+your_username ALL=(ALL) NOPASSWD: /usr/bin/nmap
+```
+
+Ersetzen Sie `your_username` durch Ihren tatsächlichen Benutzernamen.
+
+**Alternative:** Wenn Sie sich eine Passwort-Eingabe leisten können, funktioniert die App auch ohne diese Konfiguration - sie zeigt dann die Passwort-Aufforderung an.
+
+### 5. Berechtigungen setzen (optional, wird durch Auto-Sudo ersetzt)
 # Erlaubt tcpdump als normaler Benutzer
 sudo chmod +s /usr/bin/tcpdump
 

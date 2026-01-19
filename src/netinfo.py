@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 import re
 
-from utils import run_cmd
+from utils import run_cmd, run_cmd_with_sudo
 
 
 @dataclass
@@ -362,14 +362,11 @@ def scan_ports_with_nmap(target: str = "localhost", ports: str = "1-1000", inter
     
     cmd.append(target)
     
-    # Run nmap
-    rc, out, err = run_cmd(cmd, timeout=30)
+    # Run nmap with automatic sudo if needed
+    rc, out, err = run_cmd_with_sudo(cmd, timeout=30)
     
     if rc != 0:
-        if "not allowed" in err.lower() or "permission" in err.lower():
-            warnings.append("nmap requires sudo: sudo nmap <target>")
-        else:
-            warnings.append(f"nmap failed: {err[:50]}")
+        warnings.append(f"nmap failed: {err[:50]}")
         return results, warnings
     
     # Parse nmap output
@@ -420,13 +417,12 @@ def scan_network_with_nmap(network: str = "192.168.1.0/24", interface: str = Non
         cmd.extend(["-e", interface])
     
     cmd.append(network)
-    rc, out, err = run_cmd(cmd, timeout=30)
+    
+    # Run nmap with automatic sudo if needed
+    rc, out, err = run_cmd_with_sudo(cmd, timeout=30)
     
     if rc != 0:
-        if "permission" in err.lower():
-            warnings.append("nmap requires sudo for network scans")
-        else:
-            warnings.append(f"nmap failed: {err[:50]}")
+        warnings.append(f"nmap failed: {err[:50]}")
         return results, warnings
     
     # Parse nmap output
@@ -482,14 +478,11 @@ def sniff_packets(interface: str = "eth0", packet_count: int = 20, filter_str: s
     if filter_str:
         cmd.append(filter_str)
     
-    # Run tcpdump (may require sudo)
-    rc, out, err = run_cmd(cmd, timeout=10)
+    # Run tcpdump with automatic sudo if needed
+    rc, out, err = run_cmd_with_sudo(cmd, timeout=10)
     
     if rc != 0:
-        if "permission" in err.lower() or "denied" in err.lower():
-            warnings.append("tcpdump requires sudo: sudo tcpdump -i <interface>")
-        else:
-            warnings.append(f"tcpdump failed: {err[:50]}")
+        warnings.append(f"tcpdump failed: {err[:50]}")
         return results, warnings
     
     # Parse tcpdump output
