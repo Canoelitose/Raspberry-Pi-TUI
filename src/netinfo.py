@@ -517,6 +517,10 @@ def open_wireshark(interface: str = None) -> int:
         if rc != 0:
             return 1  # Wireshark not installed
         
+        # Check if display is available (X11 or Wayland)
+        if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
+            return 2  # No display server available
+        
         # Build Wireshark command
         cmd = []
         
@@ -543,8 +547,17 @@ def open_wireshark(interface: str = None) -> int:
 
 
 def check_wireshark_available() -> bool:
-    """Check if Wireshark is installed and available"""
+    """Check if Wireshark is installed and available with a display server"""
+    import os
+    
     rc, _, _ = run_cmd(["which", "wireshark"], timeout=2)
-    return rc == 0
+    if rc != 0:
+        return False
+    
+    # Also check if display is available
+    if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
+        return False
+    
+    return True
 
 

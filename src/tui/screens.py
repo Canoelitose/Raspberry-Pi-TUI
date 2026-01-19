@@ -1280,6 +1280,13 @@ class SnifferScreen(BaseScreen):
                 x_end=action_x + 14,
                 action_id=1
             ))
+        else:
+            # Show why Wireshark is unavailable
+            action_x += 14
+            try:
+                stdscr.addstr(y_pos, action_x, " ⚫ Wireshark (no display) ", curses.A_DIM)
+            except curses.error:
+                pass
         
         try:
             stdscr.addstr(y_pos + 1, 2, "└─")
