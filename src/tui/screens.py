@@ -10,6 +10,7 @@ from netinfo import (
     get_bluetooth_devices, get_bluetooth_status, get_bluetooth_powered,
     get_system_info, get_disk_usage, get_memory_info, check_open_ports,
     scan_ports_with_nmap, scan_network_with_nmap, get_local_network, sniff_packets,
+    sniff_packets_with_tshark, check_tshark_available,
     open_wireshark, check_wireshark_available
 )
 
@@ -1158,7 +1159,9 @@ class SnifferScreen(BaseScreen):
         self.action_buttons: List[ClickRegion] = []
         self.packet_count = 20
         self.selected_interface = None
+        self.selected_mode = 0  # 0=tcpdump, 1=tshark, 2=wireshark
         self.interfaces: List[str] = []
+        self.tshark_available = check_tshark_available()
         self.wireshark_available = check_wireshark_available()
         self._load_interfaces()
         self._load()
@@ -1176,11 +1179,19 @@ class SnifferScreen(BaseScreen):
         lines: List[str] = []
         
         # Show interface and settings
-        lines.append(f"┌─ SNIFFER | {self.selected_interface} | {self.packet_count} packets")
+        mode_name = ["TcpDump", "TShark", "Wireshark"][self.selected_mode]
+        lines.append(f"┌─ SNIFFER | {self.selected_interface} | {self.packet_count} packets | {mode_name}")
         lines.append("│")
         
-        # Run tcpdump
-        packets, warnings = sniff_packets(self.selected_interface, self.packet_count)
+        # Run sniffer based on selected mode
+        if self.selected_mode == 0:
+            # TcpDump mode
+            packets, warnings = sniff_packets(self.selected_interface, self.packet_count)
+        elif self.selected_mode == 1:
+            # TShark mode
+            packets, warnings = sniff_packets_with_tshark(self.selected_interface, self.packet_count)
+        else:
+            packets, warnings = [], []
         
         if warnings:
             for w in warnings:
@@ -1243,7 +1254,7 @@ class SnifferScreen(BaseScreen):
         
         y_pos += 3
         
-        # Draw action buttons (Tcpdump / Wireshark)
+        # Draw capture mode buttons
         try:
             stdscr.addstr(y_pos, 2, "┌─ CAPTURE MODE", curses.A_BOLD)
             y_pos += 1
@@ -1253,40 +1264,42 @@ class SnifferScreen(BaseScreen):
         self.action_buttons = []
         action_x = 2
         
-        # Tcpdump button
-        try:
-            stdscr.addstr(y_pos, action_x, " 📊 TcpDump ", curses.A_REVERSE)
-        except curses.error:
-            pass
-        self.action_buttons.append(ClickRegion(
-            y_start=y_pos,
-            y_end=y_pos,
-            x_start=action_x,
-            x_end=action_x + 12,
-            action_id=0
-        ))
+        # Mode buttons
+        modes = [
+            (0, "📊 TcpDump", True),  # Always available
+            (1, "🔍 TShark", self.tshark_available),
+            (2, "🖥️ Wireshark", self.wireshark_available),
+        ]
         
-        # Wireshark button (if available)
-        if self.wireshark_available:
-            action_x += 14
-            try:
-                stdscr.addstr(y_pos, action_x, " 🔍 Wireshark ", curses.A_NORMAL)
-            except curses.error:
-                pass
-            self.action_buttons.append(ClickRegion(
-                y_start=y_pos,
-                y_end=y_pos,
-                x_start=action_x,
-                x_end=action_x + 14,
-                action_id=1
-            ))
-        else:
-            # Show why Wireshark is unavailable
-            action_x += 14
-            try:
-                stdscr.addstr(y_pos, action_x, " ⚫ Wireshark (no display) ", curses.A_DIM)
-            except curses.error:
-                pass
+        for mode_id, label, available in modes:
+            if available:
+                is_selected = (mode_id == self.selected_mode)
+                try:
+                    if is_selected:
+                        stdscr.attron(curses.A_REVERSE)
+                    stdscr.addstr(y_pos, action_x, label)
+                    if is_selected:
+                        stdscr.attroff(curses.A_REVERSE)
+                except curses.error:
+                    pass
+                
+                self.action_buttons.append(ClickRegion(
+                    y_start=y_pos,
+                    y_end=y_pos,
+                    x_start=action_x,
+                    x_end=action_x + len(label) - 1,
+                    action_id=mode_id
+                ))
+                action_x += len(label) + 2
+            else:
+                # Unavailable mode shown in gray
+                try:
+                    stdscr.attron(curses.A_DIM)
+                    stdscr.addstr(y_pos, action_x, label)
+                    stdscr.attroff(curses.A_DIM)
+                except curses.error:
+                    pass
+                action_x += len(label) + 2
         
         try:
             stdscr.addstr(y_pos + 1, 2, "└─")
@@ -1316,18 +1329,24 @@ class SnifferScreen(BaseScreen):
                 
                 # Check action buttons
                 action_clicked = check_mouse_click(mouse_event, self.action_buttons)
-                if action_clicked == 0:
-                    # Tcpdump - refresh the display
-                    self._load()
-                    return ScreenResult()
-                elif action_clicked == 1 and self.wireshark_available:
-                    # Open Wireshark
-                    rc = open_wireshark(self.selected_interface)
-                    if rc == 0:
-                        # Return to this screen after Wireshark closes
+                if action_clicked is not None:
+                    if action_clicked == 0:
+                        # TcpDump mode
+                        self.selected_mode = 0
+                        self._load()
                         return ScreenResult()
-                    else:
-                        return ScreenResult(message="Wireshark launch failed")
+                    elif action_clicked == 1 and self.tshark_available:
+                        # TShark mode
+                        self.selected_mode = 1
+                        self._load()
+                        return ScreenResult()
+                    elif action_clicked == 2 and self.wireshark_available:
+                        # Wireshark GUI mode
+                        rc = open_wireshark(self.selected_interface)
+                        if rc == 0:
+                            return ScreenResult()
+                        else:
+                            return ScreenResult(message="Wireshark launch failed")
                 
                 # Check bottom buttons
                 button_clicked = check_mouse_click(mouse_event, self.button_regions)

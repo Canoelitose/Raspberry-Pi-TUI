@@ -502,6 +502,61 @@ def sniff_packets(interface: str = "eth0", packet_count: int = 20, filter_str: s
     return results, warnings
 
 
+def sniff_packets_with_tshark(interface: str = "eth0", packet_count: int = 20, filter_str: str = "") -> Tuple[List[str], List[str]]:
+    """
+    Sniff network packets using tshark (Wireshark terminal version).
+    Provides better formatting and analysis than tcpdump.
+    interface: network interface to sniff on (e.g. "eth0", "wlan0")
+    packet_count: number of packets to capture
+    filter_str: tshark filter (e.g. "tcp.port == 80" or "icmp")
+    """
+    warnings: List[str] = []
+    results: List[str] = []
+    
+    # Check if tshark is available
+    rc, _, err = run_cmd(["which", "tshark"], timeout=2)
+    if rc != 0:
+        return results, ["tshark not installed. Install with: sudo apt install tshark"]
+    
+    # Build tshark command with nice formatting
+    cmd = ["tshark", "-i", interface, "-c", str(packet_count)]
+    
+    # Add tshark format options for better display
+    cmd.extend(["-o", "gui.column.format:\"No.\",\"%m\",\"Time\",\"%t\",\"Source\",\"%s\",\"Protocol\",\"%p\",\"Info\",\"%i\""])
+    
+    # Add filter if specified
+    if filter_str:
+        cmd.extend(["-f", filter_str])
+    
+    # Run tshark with automatic sudo if needed
+    rc, out, err = run_cmd_with_sudo(cmd, timeout=10)
+    
+    if rc != 0:
+        warnings.append(f"tshark failed: {err[:50]}")
+        return results, warnings
+    
+    # Parse tshark output
+    lines = out.splitlines()
+    
+    for line in lines:
+        line = line.strip()
+        # Skip empty lines
+        if line and not line.startswith("tshark:"):
+            # Truncate long lines for display
+            results.append(line[:80])
+    
+    if not results:
+        results.append("(No packets captured)")
+    
+    return results, warnings
+
+
+def check_tshark_available() -> bool:
+    """Check if tshark is installed and available"""
+    rc, _, _ = run_cmd(["which", "tshark"], timeout=2)
+    return rc == 0
+
+
 def open_wireshark(interface: str = None) -> int:
     """
     Open Wireshark GUI for interactive packet capture and analysis.

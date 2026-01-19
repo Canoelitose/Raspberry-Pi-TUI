@@ -34,6 +34,7 @@ sudo apt-get install -y iproute2
 sudo apt-get install -y iputils-ping
 sudo apt-get install -y wireless-tools
 sudo apt-get install -y wireshark       # Für GUI-basierte Paketanalyse
+sudo apt-get install -y tshark          # Für Terminal-basierte Wireshark-Analyse
 ```
 
 #### Python
@@ -61,19 +62,33 @@ sudo visudo
 your_username ALL=(ALL) NOPASSWD: /usr/sbin/tcpdump
 your_username ALL=(ALL) NOPASSWD: /usr/bin/nmap
 your_username ALL=(ALL) NOPASSWD: /usr/bin/wireshark
+your_username ALL=(ALL) NOPASSWD: /usr/bin/tshark
 ```
 
 Ersetzen Sie `your_username` durch Ihren tatsächlichen Benutzernamen.
 
 **Alternative:** Wenn Sie sich eine Passwort-Eingabe leisten können, funktioniert die App auch ohne diese Konfiguration - sie zeigt dann die Passwort-Aufforderung an.
 
-### 5. Wireshark GUI Integration
+### 5. Sniffer Modi
 
-Der Network Sniffer bietet zwei Modi:
-- **TcpDump**: Paketerfassung direkt im TUI (terminal)
-- **Wireshark**: Öffnet die grafische Wireshark-GUI für detaillierte Analyse
+Der Network Sniffer bietet drei verschiedene Capture-Modi:
 
-Nach der Wireshark-GUI wird der TUI automatisch wiederhergestellt und zeigt die ursprüngliche Sniffer-Anzeige.
+1. **📊 TcpDump** (Immer verfügbar)
+   - Einfache Paketerfassung
+   - Leichtgewichtig und schnell
+   - Standard tcpdump Ausgabe
+
+2. **🔍 TShark** (Terminal-Version von Wireshark)
+   - Bessere Formatierung und Analyse als tcpdump
+   - Wireshark-Features im Terminal
+   - Keine GUI erforderlich (funktioniert auch auf Headless-Systemen!)
+   - Detaillierte Paketinformationen
+
+3. **🖥️ Wireshark GUI** (Nur wenn Display verfügbar)
+   - Vollständige grafische Wireshark-Oberfläche
+   - Interaktive Paket-Inspektion
+   - Statistiken und Protokoll-Analyse
+   - Automatische Rückkehr zum TUI nach Schließen
 
 ### 6. Berechtigungen setzen (optional, wird durch Auto-Sudo ersetzt)
 # Erlaubt tcpdump als normaler Benutzer

@@ -56,7 +56,7 @@ print_success "apt-get aktualisiert"
 # ============================================================================
 print_header "Schritt 2/5: Netzwerk-Tools installieren"
 
-TOOLS=("nmap" "tcpdump" "net-tools" "iproute2" "iputils-ping" "wireless-tools" "wireshark")
+TOOLS=("nmap" "tcpdump" "net-tools" "iproute2" "iputils-ping" "wireless-tools" "wireshark" "tshark")
 
 for tool in "${TOOLS[@]}"; do
     if ! command -v $tool &> /dev/null; then
