@@ -330,3 +330,126 @@ def check_open_ports(host: str = "localhost") -> Tuple[List[str], List[str]]:
             open_ports.append(line.strip()[:60])  # Limit line length
     
     return open_ports, warnings
+
+
+# ============== NMAP PORT SCANNING ==============
+
+def scan_ports_with_nmap(target: str = "localhost", scan_type: str = "fast") -> Tuple[List[str], List[str]]:
+    """
+    Scan ports using nmap.
+    scan_type: 'fast' (top 100), 'common' (top 1000), 'full' (all)
+    """
+    warnings: List[str] = []
+    results: List[str] = []
+    
+    # Check if nmap is available
+    rc, _, err = run_cmd(["which", "nmap"], timeout=2)
+    if rc != 0:
+        return results, ["nmap not installed. Install with: sudo apt install nmap"]
+    
+    # Build nmap command
+    cmd = ["nmap"]
+    
+    # Add scan type
+    if scan_type == "fast":
+        cmd.append("-F")  # Scan top 100 ports
+    elif scan_type == "common":
+        cmd.extend(["-p", "1-10000"])  # Top 10000 ports
+    elif scan_type == "full":
+        cmd.extend(["-p", "-"])  # All ports (65535)
+    else:
+        cmd.append("-F")
+    
+    # Add target
+    cmd.append(target)
+    
+    # Run nmap
+    rc, out, err = run_cmd(cmd, timeout=30)
+    
+    if rc != 0:
+        if "not allowed" in err.lower() or "permission" in err.lower():
+            warnings.append("nmap requires sudo: sudo nmap <target>")
+        else:
+            warnings.append(f"nmap failed: {err[:50]}")
+        return results, warnings
+    
+    # Parse nmap output
+    lines = out.splitlines()
+    in_port_section = False
+    
+    for line in lines:
+        line_stripped = line.strip()
+        
+        # Look for port information
+        if "/tcp" in line or "/udp" in line:
+            in_port_section = True
+            results.append(line_stripped[:70])
+        elif in_port_section and line_stripped and not line_stripped.startswith("Nmap"):
+            if "Host is up" in line or "Nmap scan report" in line:
+                break
+            if line_stripped:
+                results.append(line_stripped[:70])
+    
+    if not results:
+        # Try to extract summary info if no ports found
+        for line in lines:
+            if "All" in line and "ports" in line and "filtered" in line:
+                results.append(line.strip()[:70])
+    
+    return results, warnings
+
+
+def scan_network_with_nmap(network: str = "192.168.1.0/24") -> Tuple[List[str], List[str]]:
+    """
+    Scan a network for active hosts using nmap -sn (ping scan).
+    network: CIDR notation like "192.168.1.0/24"
+    """
+    warnings: List[str] = []
+    results: List[str] = []
+    
+    # Check if nmap is available
+    rc, _, err = run_cmd(["which", "nmap"], timeout=2)
+    if rc != 0:
+        return results, ["nmap not installed. Install with: sudo apt install nmap"]
+    
+    # Run nmap network discovery
+    cmd = ["nmap", "-sn", network]
+    rc, out, err = run_cmd(cmd, timeout=30)
+    
+    if rc != 0:
+        if "permission" in err.lower():
+            warnings.append("nmap requires sudo for network scans")
+        else:
+            warnings.append(f"nmap failed: {err[:50]}")
+        return results, warnings
+    
+    # Parse nmap output
+    for line in out.splitlines():
+        if "Nmap scan report for" in line or "Host is up" in line:
+            results.append(line.strip()[:70])
+    
+    return results, warnings
+
+
+def get_local_network() -> Tuple[str, List[str]]:
+    """Get local network CIDR from current interfaces"""
+    warnings: List[str] = []
+    
+    ifaces, _ = get_interfaces()
+    
+    for iface in ifaces:
+        if iface.name not in ["lo", "docker0"]:
+            if iface.ipv4:
+                # Extract network from first IPv4
+                ip_str = iface.ipv4[0]  # e.g., "192.168.1.100/24"
+                if "/" in ip_str:
+                    ip_part, mask = ip_str.split("/")
+                    # Reconstruct network address
+                    parts = ip_part.split(".")
+                    if len(parts) == 4:
+                        network = f"{parts[0]}.{parts[1]}.{parts[2]}.0/{mask}"
+                        return network, warnings
+    
+    # Fallback
+    return "192.168.1.0/24", ["Could not determine local network"]
+

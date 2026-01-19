@@ -8,7 +8,8 @@ from tui.widgets import draw_header, draw_footer, menu, draw_text_block, draw_se
 from netinfo import (
     get_interfaces, get_dns, get_default_route, ping, wifi_status, get_interface_stats,
     get_bluetooth_devices, get_bluetooth_status, get_bluetooth_powered,
-    get_system_info, get_disk_usage, get_memory_info, check_open_ports
+    get_system_info, get_disk_usage, get_memory_info, check_open_ports,
+    scan_ports_with_nmap, scan_network_with_nmap, get_local_network
 )
 
 
@@ -701,37 +702,91 @@ class PortScannerScreen(BaseScreen):
     def __init__(self):
         self.lines: List[str] = []
         self.button_regions: List[ClickRegion] = []
+        self.scan_mode = "local"  # local, localhost, nmap, network
+        self.target = "localhost"
         self._load()
 
     def _load(self) -> None:
         lines: List[str] = []
         
-        lines.append("🔍 OPEN PORTS")
+        lines.append("🔍 PORT SCANNER")
         lines.append("─" * 30)
-        ports, warnings = check_open_ports()
+        lines.append("")
         
-        if warnings:
-            for w in warnings:
-                lines.append(f"⚠ {w}")
+        if self.scan_mode == "local":
+            # Show local system ports
+            lines.append("📊 LOCAL SYSTEM PORTS")
+            lines.append("(via netstat/ss)")
+            lines.append("─" * 30)
+            ports, warnings = check_open_ports()
+            
+            if warnings:
+                for w in warnings:
+                    lines.append(f"⚠ {w}")
+                lines.append("")
+            
+            if ports:
+                for port in ports[:20]:
+                    lines.append(port)
+            else:
+                lines.append("(No listening ports found)")
+        
+        elif self.scan_mode == "nmap":
+            # Show nmap scan
+            lines.append("🎯 NMAP SCAN (localhost)")
+            lines.append("Fast mode (top 100 ports)")
+            lines.append("─" * 30)
+            ports, warnings = scan_ports_with_nmap("localhost", "fast")
+            
+            if warnings:
+                for w in warnings:
+                    lines.append(f"⚠ {w}")
+                lines.append("")
+                lines.append("💡 To use nmap, install:")
+                lines.append("  sudo apt install nmap")
+                lines.append("")
+            
+            if ports:
+                for port in ports[:25]:
+                    lines.append(port)
+            else:
+                lines.append("(No open ports detected)")
+        
+        elif self.scan_mode == "network":
+            # Show network scan
+            lines.append("🌐 NETWORK HOST DISCOVERY")
+            lines.append("(nmap -sn)")
+            lines.append("─" * 30)
+            network, net_warn = get_local_network()
+            lines.append(f"Scanning: {network}")
             lines.append("")
-        
-        if ports:
-            for port in ports[:20]:
-                lines.append(port)
-        else:
-            lines.append("(No listening ports found)")
+            
+            hosts, warnings = scan_network_with_nmap(network)
+            
+            if warnings:
+                for w in warnings:
+                    lines.append(f"⚠ {w}")
+                lines.append("")
+            
+            if hosts:
+                for host in hosts[:20]:
+                    lines.append(host)
+            else:
+                lines.append("(No hosts found)")
         
         self.lines = lines
 
     def render(self, stdscr) -> None:
         stdscr.clear()
-        draw_header(stdscr, self.title)
+        draw_header(stdscr, self.title, self.scan_mode.upper())
         h, w = stdscr.getmaxyx()
         draw_text_block(stdscr, 2, 2, w - 4, self.lines)
         
         self.button_regions = draw_touch_button_bar(stdscr, [
-            ("← Back", 0),
-            ("🔄 Refresh", 1),
+            ("Local Ports", 0),
+            ("nmap", 1),
+            ("Network", 2),
+            ("← Back", 3),
         ])
 
     def handle_key(self, key: int) -> ScreenResult:
@@ -740,9 +795,16 @@ class PortScannerScreen(BaseScreen):
                 mouse_event = curses.getmouse()
                 button_clicked = check_mouse_click(mouse_event, self.button_regions)
                 if button_clicked == 0:
-                    return ScreenResult(next_screen="hacker")
-                elif button_clicked == 1:
+                    self.scan_mode = "local"
                     self._load()
+                elif button_clicked == 1:
+                    self.scan_mode = "nmap"
+                    self._load()
+                elif button_clicked == 2:
+                    self.scan_mode = "network"
+                    self._load()
+                elif button_clicked == 3:
+                    return ScreenResult(next_screen="hacker")
             except:
                 pass
         

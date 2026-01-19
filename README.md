@@ -20,7 +20,10 @@ A comprehensive Terminal User Interface (TUI) for network diagnostics, system mo
 - **Disk Usage**: Storage capacity, used space, percentage
 
 ### 🔧 **Hacker Tools** (Expandable)
-- **Port Scanner**: View listening ports on system
+- **Port Scanner**: 
+  - Local ports (netstat/ss)
+  - nmap localhost scan (top 100 ports)
+  - Network discovery (nmap -sn)
 - **Network Sniffer**: Coming soon
 - **Packet Tools**: Coming soon
 
@@ -51,6 +54,7 @@ The tool automatically enables touchscreen-friendly interface with larger button
 - Linux/Raspberry Pi with `ip` command
 - (Optional) `iw` package for WLAN: `sudo apt install iw`
 - (Optional) `bluetoothctl` for Bluetooth: usually included
+- (Optional) `nmap` for advanced port scanning: `sudo apt install nmap`
 - Curses library (built-in on Linux)
 
 ## 🎮 Controls
