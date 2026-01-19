@@ -334,7 +334,7 @@ def check_open_ports(host: str = "localhost") -> Tuple[List[str], List[str]]:
 
 # ============== NMAP PORT SCANNING ==============
 
-def scan_ports_with_nmap(target: str = "localhost", ports: str = "1-65535", interface: str = None) -> Tuple[List[str], List[str]]:
+def scan_ports_with_nmap(target: str = "localhost", ports: str = "1-1000", interface: str = None) -> Tuple[List[str], List[str]]:
     """
     Scan specific ports using nmap.
     target: target IP or network range
@@ -351,7 +351,7 @@ def scan_ports_with_nmap(target: str = "localhost", ports: str = "1-65535", inte
     
     # Validate port range
     if not ports:
-        ports = "1-65535"
+        ports = "1-1000"
     
     # Build nmap command
     cmd = ["nmap", "-p", ports]

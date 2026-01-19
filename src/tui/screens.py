@@ -723,7 +723,7 @@ class PortScannerScreen(BaseScreen):
         self.scan_mode_buttons: List[ClickRegion] = []
         self.interface_buttons: List[ClickRegion] = []
         self.scan_mode = "local"  # local, nmap, network
-        self.custom_ports = "1-100"  # Default port range
+        self.custom_ports = "1-1000"  # Default port range (not too many)
         self.selected_interface = None
         self.interfaces: List[str] = []
         self._load_interfaces()
@@ -742,11 +742,11 @@ class PortScannerScreen(BaseScreen):
         lines: List[str] = []
         
         # Check if we came from CustomPortInputScreen with custom ports
-        if CustomPortInputScreen.custom_ports_to_scan != "1-100":
+        if CustomPortInputScreen.custom_ports_to_scan != "1-1000":
             self.scan_mode = "nmap"
             self.custom_ports = CustomPortInputScreen.custom_ports_to_scan
             self.selected_interface = CustomPortInputScreen.current_interface
-            CustomPortInputScreen.custom_ports_to_scan = "1-100"  # Reset
+            CustomPortInputScreen.custom_ports_to_scan = "1-1000"  # Reset
         
         # Show interface info
         lines.append(f"┌─ INTERFACE: {self.selected_interface}")
@@ -985,7 +985,7 @@ class CustomPortInputScreen(BaseScreen):
     
     # Class variable to store interface from PortScannerScreen
     current_interface = "localhost"
-    custom_ports_to_scan = "1-100"
+    custom_ports_to_scan = "1-1000"
 
     def __init__(self, selected_interface: str = "localhost"):
         self.input_text = CustomPortInputScreen.custom_ports_to_scan
