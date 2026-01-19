@@ -1,1 +1,4 @@
-# Keine zusÃ¤tzlichen Pakete nÃ¶tig (curses ist auf Linux typischerweise enthalten)
+# Python Abhängigkeiten für Raspberry Pi TUI
+
+# USB/HID Handling für Keyboard Interception
+pyusb>=1.2.1

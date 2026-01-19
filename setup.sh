@@ -56,7 +56,7 @@ print_success "apt-get aktualisiert"
 # ============================================================================
 print_header "Schritt 2/6: Netzwerk- und Security-Tools installieren"
 
-TOOLS=("nmap" "tcpdump" "net-tools" "iproute2" "iputils-ping" "wireless-tools" "wireshark" "tshark" "evtest" "libinput-tools")
+TOOLS=("nmap" "tcpdump" "net-tools" "iproute2" "iputils-ping" "wireless-tools" "wireshark" "tshark" "evtest" "libinput-tools" "usbutils")
 
 for tool in "${TOOLS[@]}"; do
     # Special handling for wireshark (includes tshark)

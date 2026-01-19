@@ -12,7 +12,8 @@ from netinfo import (
     scan_ports_with_nmap, scan_network_with_nmap, get_local_network, sniff_packets,
     sniff_packets_with_tshark, check_tshark_available,
     open_wireshark, check_wireshark_available,
-    monitor_keyboard_events, get_keyboard_devices, capture_keyboard_events
+    monitor_keyboard_events, get_keyboard_devices, capture_keyboard_events,
+    list_usb_devices, monitor_usb_keyboard_events, intercept_usb_keyboard
 )
 
 
@@ -681,6 +682,7 @@ class HackerToolsScreen(BaseScreen):
             "Port Scanner",
             "Network Sniffer",
             "Keystroke Logger",
+            "USB Keyboard Interceptor",
             "Packet Tools",
             "← Back",
         ]
@@ -708,7 +710,7 @@ class HackerToolsScreen(BaseScreen):
                 mouse_event = curses.getmouse()
                 clicked_item = check_mouse_click(mouse_event, self.menu_regions)
                 if clicked_item is not None:
-                    screens = ["port_scan", "sniffer", "keylogger", "packets", "main"]
+                    screens = ["port_scan", "sniffer", "keylogger", "usb_interceptor", "packets", "main"]
                     if clicked_item < len(screens):
                         return ScreenResult(next_screen=screens[clicked_item])
             except:
@@ -1626,6 +1628,189 @@ class KeyloggerScreen(BaseScreen):
                 dev_clicked = check_mouse_click(mouse_event, self.device_buttons)
                 if dev_clicked is not None and dev_clicked < len(self.devices):
                     self.selected_device = self.devices[dev_clicked]
+                    return ScreenResult()
+                
+                # Check bottom buttons
+                button_clicked = check_mouse_click(mouse_event, self.button_regions)
+                if button_clicked == 0:
+                    return ScreenResult(next_screen="hacker")
+                elif button_clicked == 1:
+                    self._load()
+                elif button_clicked == 2:
+                    return ScreenResult(next_screen="main")
+            except:
+                pass
+        
+        return ScreenResult()
+
+
+class USBKeyboardInterceptorScreen(BaseScreen):
+    name = "usb_interceptor"
+    title = "🔌 USB Keyboard Interceptor"
+
+    def __init__(self):
+        self.lines: List[str] = []
+        self.button_regions: List[ClickRegion] = []
+        self.mode_buttons: List[ClickRegion] = []
+        self.device_buttons: List[ClickRegion] = []
+        self.mode = 0  # 0=info, 1=detect, 2=monitor, 3=intercept
+        self.devices: List[str] = []
+        self.selected_device = None
+        self._load()
+
+    def _load(self) -> None:
+        lines: List[str] = []
+        lines.append("┌─ USB KEYBOARD INTERCEPTOR")
+        lines.append("│")
+        lines.append("│ ⚠️  ADVANCED SECURITY TOOL:")
+        lines.append("│ USB Keyboard Traffic Interception")
+        lines.append("│")
+        lines.append("│ ⚠️  LEGAL WARNING:")
+        lines.append("│ - Unauthorized interception is ILLEGAL")
+        lines.append("│ - Use only on systems you own/control")
+        lines.append("│ - Educational/authorized testing ONLY")
+        lines.append("│")
+        
+        if self.mode == 0:
+            # Info mode
+            lines.append("│ FEATURES:")
+            lines.append("│ • Auto-detect USB keyboards")
+            lines.append("│ • Live keystroke monitoring")
+            lines.append("│ • USB device enumeration")
+            lines.append("│ • HID event capture")
+            lines.append("│")
+            lines.append("│ STEPS:")
+            lines.append("│ 1. Click 'Detect' to find USB keyboards")
+            lines.append("│ 2. Click 'Monitor' to watch keystrokes")
+            lines.append("│ 3. View all captured keys live")
+        
+        elif self.mode == 1:
+            # Detect mode
+            devices, warnings = list_usb_devices()
+            
+            if warnings:
+                for w in warnings:
+                    lines.append(f"│ ⚠ {w}")
+                lines.append("│")
+            
+            lines.append("│ USB DEVICES:")
+            
+            if devices:
+                self.devices = devices
+                for dev in devices[:15]:
+                    lines.append(f"│ {dev[:70]}")
+            else:
+                lines.append("│ (No USB devices found)")
+                lines.append("│ Connect a USB keyboard")
+        
+        elif self.mode == 2:
+            # Monitor mode
+            results, warnings = monitor_usb_keyboard_events()
+            
+            lines.append("│")
+            if warnings:
+                for w in warnings:
+                    lines.append(f"│ ⚠ {w}")
+                lines.append("│")
+            
+            for line in results:
+                lines.append(f"│ {line[:70]}")
+        
+        elif self.mode == 3:
+            # Intercept mode
+            if self.selected_device:
+                lines.append(f"│ Intercepting: {self.selected_device[:60]}")
+                lines.append("│")
+                
+                # Extract device path
+                device_path = self.selected_device.split(":")[0].strip() if ":" in self.selected_device else "/dev/input/event0"
+                
+                results, warnings = intercept_usb_keyboard(device_path)
+                
+                if warnings:
+                    lines.append("│")
+                    for w in warnings:
+                        lines.append(f"│ ⚠ {w}")
+                
+                lines.append("│")
+                for line in results:
+                    lines.append(f"│ {line[:70]}")
+            else:
+                lines.append("│ No device selected for interception")
+        
+        lines.append("└─")
+        self.lines = lines
+
+    def render(self, stdscr) -> None:
+        stdscr.clear()
+        draw_header(stdscr, self.title)
+        h, w = stdscr.getmaxyx()
+        safe_w = get_safe_width(stdscr)
+        
+        y_pos = 2
+        
+        # Draw mode buttons
+        try:
+            stdscr.addstr(y_pos, 2, "┌─ MODE", curses.A_BOLD)
+            y_pos += 1
+        except curses.error:
+            pass
+        
+        self.mode_buttons = []
+        modes = [
+            ("ℹ️ Info", 0),
+            ("🔎 Detect", 1),
+            ("👁️ Monitor", 2),
+            ("⏹️ Intercept", 3),
+        ]
+        
+        action_x = 2
+        for label, mode_idx in modes:
+            is_selected = (mode_idx == self.mode)
+            button_width = 13
+            try:
+                if is_selected:
+                    stdscr.attron(curses.A_REVERSE)
+                btn_text = label.center(button_width)[:button_width]
+                stdscr.addstr(y_pos, action_x, btn_text)
+                if is_selected:
+                    stdscr.attroff(curses.A_REVERSE)
+            except curses.error:
+                pass
+            
+            self.mode_buttons.append(ClickRegion(
+                y_start=y_pos,
+                y_end=y_pos,
+                x_start=action_x,
+                x_end=action_x + button_width - 1,
+                action_id=mode_idx
+            ))
+            action_x += button_width + 1
+        
+        try:
+            stdscr.addstr(y_pos + 1, 2, "└─")
+        except curses.error:
+            pass
+        
+        y_pos += 3
+        draw_text_block(stdscr, y_pos, 2, w - 4, self.lines)
+        
+        self.button_regions = draw_touch_button_bar(stdscr, [
+            ("← Back", 0),
+            ("🔄 Refresh", 1),
+            ("Home", 2),
+        ])
+
+    def handle_key(self, key: int) -> ScreenResult:
+        if key == curses.KEY_MOUSE:
+            try:
+                mouse_event = curses.getmouse()
+                
+                # Check mode buttons
+                mode_clicked = check_mouse_click(mouse_event, self.mode_buttons)
+                if mode_clicked is not None:
+                    self.mode = mode_clicked
+                    self._load()
                     return ScreenResult()
                 
                 # Check bottom buttons

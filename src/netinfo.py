@@ -733,3 +733,135 @@ def capture_keyboard_events(event_device: str = "", duration: int = 5) -> Tuple[
     return results, warnings
 
 
+def list_usb_devices() -> Tuple[List[str], List[str]]:
+    """
+    List all connected USB devices (including keyboards).
+    Uses lsusb command for detection.
+    """
+    warnings: List[str] = []
+    devices: List[str] = []
+    
+    # Check if lsusb is available
+    rc, _, _ = run_cmd(["which", "lsusb"], timeout=2)
+    if rc != 0:
+        return devices, ["lsusb not installed. Install with: sudo apt-get install usbutils"]
+    
+    # List all USB devices
+    rc, out, err = run_cmd(["lsusb"], timeout=5)
+    
+    if rc == 0:
+        lines = out.splitlines()
+        for line in lines:
+            # Parse lsusb output: "Bus 001 Device 002: ID 1234:5678 Keyboard Name"
+            if "Keyboard" in line or "keyboard" in line or "HID" in line or "hid" in line:
+                devices.append(f"⌨️  {line.strip()}")
+            else:
+                devices.append(f"📱 {line.strip()}")
+    else:
+        warnings.append(f"lsusb error: {err[:50]}")
+    
+    return devices, warnings
+
+
+def monitor_usb_keyboard_events(bus: int = -1, device: int = -1) -> Tuple[List[str], List[str]]:
+    """
+    Monitor USB keyboard events using pyusb or evtest.
+    Intercepts keystrokes and displays them live.
+    """
+    import threading
+    
+    warnings: List[str] = []
+    results: List[str] = []
+    
+    # Try to import pyusb for direct USB monitoring
+    try:
+        import usb
+        results.append("✓ pyusb available - Direct USB monitoring")
+        results.append("")
+        
+        # List all USB devices
+        devices_found = 0
+        keyboard_devices = []
+        
+        for dev in usb.core.find(find_all=True):
+            # Check if device is keyboard-like (HID class 3)
+            try:
+                if dev.bDeviceClass == 0 or dev.bDeviceClass == usb.CLASS_HID or "Keyboard" in str(dev):
+                    devices_found += 1
+                    dev_name = f"Bus {dev.bus:03d} Device {dev.address:03d}"
+                    try:
+                        dev_name += f": {dev.manufacturer} - {dev.product}"
+                    except:
+                        pass
+                    results.append(dev_name)
+                    keyboard_devices.append((dev.bus, dev.address))
+            except:
+                pass
+        
+        if devices_found == 0:
+            results.append("No USB keyboards detected")
+            results.append("Make sure USB keyboard is connected")
+        else:
+            results.append(f"\n✓ Found {devices_found} USB device(s)")
+    
+    except ImportError:
+        warnings.append("pyusb not installed")
+        results.append("Install: pip3 install pyusb")
+        
+        # Fallback to evtest
+        rc, _, _ = run_cmd(["which", "evtest"], timeout=2)
+        if rc == 0:
+            results.append("\nFallback: Using evtest for monitoring")
+            results.append("Connect keyboard and select device in evtest")
+        else:
+            warnings.append("Neither pyusb nor evtest available")
+    
+    return results, warnings
+
+
+def intercept_usb_keyboard(input_device: str) -> Tuple[List[str], List[str]]:
+    """
+    Intercept USB keyboard input and display keystrokes live.
+    input_device: Source device path (e.g., /dev/input/event5)
+    """
+    warnings: List[str] = []
+    results: List[str] = []
+    
+    # Check input device exists
+    import os
+    if not os.path.exists(input_device):
+        return results, [f"Input device not found: {input_device}"]
+    
+    results.append(f"✓ Input device: {input_device}")
+    results.append("")
+    results.append("Capturing keyboard events (5 sec)...")
+    results.append("Press some keys on the USB keyboard:")
+    results.append("")
+    
+    # Use evtest to capture events with grab (exclusive access)
+    cmd = ["timeout", "5", "evtest", "--grab", input_device]
+    rc, out, err = run_cmd_with_sudo(cmd, timeout=10)
+    
+    if rc == 0 or rc == 124:  # 124 = timeout (expected)
+        lines = out.splitlines()
+        key_count = 0
+        for line in lines:
+            if "EV_KEY" in line or "KEY_" in line:
+                # Parse keystroke: extract the key name
+                if "press" in line.lower() or "release" in line.lower():
+                    results.append(f"⌨️  {line.strip()[:75]}")
+                    key_count += 1
+        
+        if key_count > 0:
+            results.append(f"\n✓ Captured {key_count} keystrokes")
+        else:
+            results.append("(No keystrokes captured)")
+    else:
+        if "Permission denied" in err:
+            warnings.append("Permission denied - try with sudo")
+        else:
+            warnings.append(f"evtest error: {err[:50]}")
+    
+    return results, warnings
+
+
